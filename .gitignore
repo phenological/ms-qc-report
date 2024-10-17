@@ -47,3 +47,25 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+.~*
+*.html
+!outputLayout*.html
+
+*.sl3
+*.sqlite
+*.sqlite3
+
+*.rda
+*.Rdata
+*data.tsv
+*/pics/*
+*.png
+*.svg
+*.docx
+*.xlsx
+
+*.daE
+*/datasets/*
+datasets*
+
+.DS_Store
