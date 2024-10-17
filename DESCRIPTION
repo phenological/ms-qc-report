@@ -10,3 +10,13 @@ License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+Imports: 
+    ggplot2,
+    ggpubr,
+    grid,
+    patchwork,
+    reshape2,
+    roxygen2,
+    utils
+Suggests:
+    testthat # for testing
