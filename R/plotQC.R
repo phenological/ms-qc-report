@@ -16,7 +16,7 @@
 #' @importFrom reshape2 melt
 #'
 
-plotQC <- function(dae, optn = list()){
+plotQC <- function(dae, scale = TRUE, optns = list()){
   
   plots <- list()
   for(i in 1:length(dae@obsDescr)){
@@ -39,17 +39,22 @@ plotQC <- function(dae, optn = list()){
     #are required columns present
     qCCols %in% names(df)
     
+    # Rename specific columns in the df
+    colnames(df)[colnames(df) == "ISTD Area"] <- "AreaSIL"
+    colnames(df)[colnames(df) == "relative Area"] <- "Response"
+    colnames(df)[colnames(df) == "Quantity"] <- "Conc"
+    
     #make sure cols are numeric
     numCols <- c("Area",
-                 "ISTD Area",
-                 "relative Area",
-                 "Quantity",
+                 "AreaSil",
+                 "Response",
+                 "Conc",
                  "Expected Quantity")
     
     df[numCols] <- lapply(df[numCols], as.numeric)
     
     #change NA to 0
-    cols <- c("Area", "ISTD Area", "relative Area", "Quantity")
+    cols <- c("Area", "AreaSil", "Response", "Conc")
     
     df[cols] <- lapply(df[cols], function(x) {
       x[is.na(x)] <- 0
@@ -98,11 +103,11 @@ plotQC <- function(dae, optn = list()){
     df <- df[-idx, ]
     
     #transform to long
-    y_columns <- c("Area", "ISTD Area", "relative Area", "Quantity")
+    y_columns <- c("Area", "AreaSil", "Response", "Conc")
     df_long <- melt(df, id.vars = c("plateExperimentID", "sampleType", "plateID"), measure.vars = y_columns)
     
     #possible log10(value + 1) scaling
-    if("scale" %in% names(optns)){
+    if(scale == TRUE){
       df_long$value <- log10(df_long$value + 1)
       ylab <- "log10(value + 1)"
     } else {ylab <- ""}
@@ -123,17 +128,40 @@ plotQC <- function(dae, optn = list()){
       scale_fill_manual(values = plotFill) +
       scale_shape_manual(values = plotShape) +
       scale_color_manual(values = plotColor) +
-      xlab("sample index") +
+      xlab("Sample Index") +
       ylab(paste0(ylab)) +
       theme(strip.text.y.left = element_text(angle = 90),  # Rotate y-axis facet labels
             strip.background = element_blank(),  # Optional: remove background from facet labels
             axis.title.y.left = element_text(),
             strip.placement = "outside",
             panel.spacing.x = unit(0, "lines"),
-            panel.spacing.y = unit(0.3, "lines"), legend.position = "bottom") +
+            panel.spacing.y = unit(0, "lines"), 
+            legend.position = "bottom") +
       # Add vertical dashed lines manually
-      annotation_custom(grid::linesGrob(y = c(0, 1), gp = grid::gpar(lty = "dashed", col = "black")), xmin = -Inf, xmax = -Inf) +
-      annotation_custom(grid::linesGrob(y = c(0, 1), gp = grid::gpar(lty = "dashed", col = "black")), xmin = Inf, xmax = Inf) +
+      annotation_custom(grid::linesGrob(y = c(0, 1), 
+                                        gp = grid::gpar(lty = "dashed", 
+                                                        col = "black")), 
+                        xmin = -Inf, 
+                        xmax = -Inf) +
+      annotation_custom(grid::linesGrob(y = c(0, 1), 
+                                        gp = grid::gpar(lty = "dashed", 
+                                                        col = "black")), 
+                        xmin = Inf, 
+                        xmax = Inf) +
+      annotation_custom(grid::linesGrob(y = c(0, 1), 
+                                        gp = grid::gpar(lty = "solid", 
+                                                        col = "black")), 
+                        xmin = -Inf, 
+                        xmax = Inf, 
+                        ymin = -Inf, 
+                        ymax = -Inf) +  # Horizontal bottom line
+      annotation_custom(grid::linesGrob(y = c(0, 1), 
+                                        gp = grid::gpar(lty = "solid", 
+                                                        col = "black")), 
+                        xmin = -Inf, 
+                        xmax = Inf, 
+                        ymin = Inf, 
+                        ymax = Inf) +
       ggtitle(unique(df$AnalyteName))
     
     #make boxPLot
@@ -142,7 +170,9 @@ plotQC <- function(dae, optn = list()){
                           y = value,
                           color = sampleType,
                           shape = sampleType)) +
-      facet_wrap(~variable, ncol = 1, strip.position = "right") +
+      facet_wrap(~variable, 
+                 ncol = 1, 
+                 strip.position = "right") +
       geom_boxplot() +
       theme_bw() +
       theme(axis.line = element_line(color='black'),
@@ -150,18 +180,31 @@ plotQC <- function(dae, optn = list()){
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
             panel.border = element_blank(),
-            axis.ticks.x=element_blank())+
+            axis.ticks.x=element_blank(), 
+            panel.spacing.y = unit(0, "lines")) +
       xlab("") +
-      ylab(paste0(""))+
+      ylab(paste0("")) +
       theme(legend.position = "none") +
       scale_color_manual(values = plotFill) +
-      scale_shape_manual(values = plotShape)
+      scale_shape_manual(values = plotShape) + 
+      annotation_custom(grid::linesGrob(y = c(0, 1), 
+                                        gp = grid::gpar(lty = "solid", col = "black")), 
+                        xmin = -Inf, 
+                        xmax = Inf, 
+                        ymin = -Inf, 
+                        ymax = -Inf) +  # Horizontal bottom line
+      annotation_custom(grid::linesGrob(y = c(0, 1), 
+                                        gp = grid::gpar(lty = "solid", col = "black")), 
+                        xmin = -Inf, 
+                        xmax = Inf, 
+                        ymin = Inf, 
+                        ymax = Inf) 
     
     QCPlot <- plot + box + plot_layout(widths = c(1, 0.2))
     
-    # plots[[i]] <- QCPlot
     # Append the valid plot to the list
     plots[[length(plots) + 1]] <- QCPlot
+    names(plots)[length(plots)] <- unique(df$AnalyteName)
   }
   
   return(plots)
