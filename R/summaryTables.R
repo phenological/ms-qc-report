@@ -80,6 +80,7 @@ summaryTables <- function(dae){
                        tables = QCLTRTables)
   
  return(QCLTRResults)
+
   }
 
 

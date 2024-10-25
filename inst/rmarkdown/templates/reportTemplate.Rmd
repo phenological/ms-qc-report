@@ -1,0 +1,49 @@
+---
+title: "reportTemplate"
+# author: "Lucy Grigoroff"
+# date: "2024-10-25"
+output: html_document
+params: 
+  title: "QC Report"
+  data: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## QC Summary Tables 
+```{r pressure, echo=FALSE}
+# Generate tables from summaryTables() function
+table_data <- summaryTables(params$data)
+
+# Print each table in table_data
+for (table_name in names(table_data[["tables"]])) {
+  table <- table_data[["tables"]][[table_name]]
+  
+  # Print a title for each table
+  cat("### Table for ", table_name, "\n\n")
+  
+  # Render each table
+  print(knitr::kable(table, caption = paste("Table for", table_name), format = "html"))
+  cat("\n\n")
+}
+
+```
+
+## Analyte Plots
+
+```{r pressure, echo=FALSE}
+plot_data <- plotQC(params$data, scale = T)
+
+# Loop over each plot in plot_data
+for (i in seq_along(plot_data)) {
+  cat("### Plot ", i, "\n\n")
+  
+  # Display each plot
+  print(plot_data[[i]])
+  cat("\n\n")
+}
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
