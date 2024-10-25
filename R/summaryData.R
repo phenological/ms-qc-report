@@ -1,13 +1,17 @@
-#stats
-
-summaryQC <- function(dae){
-  dae <- bio
+summaryData <- function(dae){
   QCLTR <- list()
+  
   for(i in  1:length(dae@obsDescr)){
     df <- bio@obsDescr[[i]]
     if(any(grepl("\\[IS\\]", df$AnalyteName))) next
     idx<- which(df$sampleType == "qc" | df$sampleType == "ltr")
-    cols <- c("AnalyteName", "sampleID", "Quantity", "Accuracy/Recovery[%]", "R2", "plateID", "sampleType")
+    cols <- c("AnalyteName", 
+              "sampleID", 
+              "Quantity", 
+              "Accuracy/Recovery[%]", 
+              "R2", 
+              "plateID", 
+              "sampleType")
     QCLTR[[i]] <- df[idx, cols]
     
   }
@@ -19,9 +23,8 @@ summaryQC <- function(dae){
   all[numCols] <- lapply(all[numCols], as.numeric)
   
   # Replace NA with 0 in the specified numeric columns
-  # all[numCols] <- lapply(all[numCols], function(x) ifelse(is.na(x), 0, x))
-  
-  
+  all$`Accuracy/Recovery[%]`[is.na(all$`Accuracy/Recovery[%]`)] <- 0
+  QCLTRData <- list()
   QCLTRTables <- list()
   
   for (plate in unique(all$plateID)) {
@@ -66,6 +69,9 @@ summaryQC <- function(dae){
       ltr_data <- analyte_data[analyte_data$sampleType == "ltr", ]
       if (nrow(ltr_data) > 1) {
         rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
+        if(rsd == "NaN"){
+          rsd <- NA
+        }
         result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- round(rsd, 2)
       } else {
         result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- NA  # Not enough data for RSD calculation
@@ -74,18 +80,16 @@ summaryQC <- function(dae){
       result_df$PassFail <- ifelse(
         (result_df$R2 >= 0.99) +                                  # Check if R2 is ≥ 0.99
           (result_df$totalQCPassPerc >= 66) +                       # Check if totalQCPass(%) is ≥ 66%
-          (result_df$LTR_RSD <= 20 | result_df$LTR_RSD == "NA")    # Check if LTR RSD is ≤ 20 or "N/A"
+          (result_df$LTR_RSD <= 20 & !is.na(result_df$LTR_RSD))    # Check if LTR RSD is ≤ 20 
         >= 3,                                                     # At least 3 of the conditions must be TRUE
-        "PASS", "FAIL"                                             # Return "PASS" if TRUE, otherwise "FAIL"
+        "PASS", "CAUTION"                                             # Return "PASS" if TRUE, otherwise "CAUTION"
       )
     }
-      
-    # Store the result data frame for the current PlateID in the list
-    QCLTRTables[[plate]] <- result_df
-      
-    }
     
- return(QCLTRTables)
+    # Store the result data frame for the current PlateID in the list
+    QCLTRData[[plate]] <- result_df
+    
   }
-
+  return(QCLTRData)
+}
 

@@ -18,6 +18,8 @@
 
 plotQC <- function(dae, scale = TRUE, optns = list()){
   
+  QCLTRData <- summaryData(dae = dae)
+  
   plots <- list()
   for(i in 1:length(dae@obsDescr)){
     df <- bio@obsDescr[[i]]
@@ -46,7 +48,7 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
     
     #make sure cols are numeric
     numCols <- c("Area",
-                 "AreaSil",
+                 "AreaSIL",
                  "Response",
                  "Conc",
                  "Expected Quantity")
@@ -54,7 +56,7 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
     df[numCols] <- lapply(df[numCols], as.numeric)
     
     #change NA to 0
-    cols <- c("Area", "AreaSil", "Response", "Conc")
+    cols <- c("Area", "AreaSIL", "Response", "Conc")
     
     df[cols] <- lapply(df[cols], function(x) {
       x[is.na(x)] <- 0
@@ -102,9 +104,17 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
     idx <- which(df$sampleType == "blank")
     df <- df[-idx, ]
     
+    #pass/fail information
+
+    df$PassFail <- NA
+    for(plate in unique(df$plateID)){
+      df[which(df$plateID == plate), "PassFail"] <- QCLTRData[[plate]][which(QCLTRData[[plate]]$AnalyteName == unique(df$AnalyteName)), "PassFail"]
+    }
+    
     #transform to long
-    y_columns <- c("Area", "AreaSil", "Response", "Conc")
-    df_long <- melt(df, id.vars = c("plateExperimentID", "sampleType", "plateID"), measure.vars = y_columns)
+    y_columns <- c("Area", "AreaSIL", "Response", "Conc")
+    df_long <- melt(df, id.vars = c("plateExperimentID", "sampleType", "plateID", "PassFail"), measure.vars = y_columns)
+    df_long$fill_color <- ifelse(df_long$PassFail == "CAUTION", "red", NA)
     
     #possible log10(value + 1) scaling
     if(scale == TRUE){
@@ -119,13 +129,21 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
                           color = sampleType,
                           shape = sampleType,
                           fill = sampleType)) +
+      geom_rect(data = subset(df_long[!duplicated(df_long[c("plateID", "variable")]) & df_long$PassFail == "CAUTION", ]),
+                fill = "red", 
+                xmin = -Inf, 
+                xmax = Inf, 
+                ymin = -Inf, 
+                ymax = Inf, 
+                alpha = 0.3, 
+                inherit.aes = FALSE) +
       geom_point() +
       facet_grid(rows = vars(variable),
                  cols = vars(plateID),
                  scales = "free_y", switch = "both")  +  # Facet by column names
       scale_x_continuous(labels = NULL) +
       theme_minimal() +
-      scale_fill_manual(values = plotFill) +
+      scale_fill_manual(values = plotFill, na.value = "transparent") +
       scale_shape_manual(values = plotShape) +
       scale_color_manual(values = plotColor) +
       xlab("Sample Index") +
@@ -136,7 +154,8 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
             strip.placement = "outside",
             panel.spacing.x = unit(0, "lines"),
             panel.spacing.y = unit(0, "lines"), 
-            legend.position = "bottom") +
+            legend.position = "bottom", 
+            panel.background = element_rect(fill = "white", color = NA)) +
       # Add vertical dashed lines manually
       annotation_custom(grid::linesGrob(y = c(0, 1), 
                                         gp = grid::gpar(lty = "dashed", 
