@@ -1,3 +1,11 @@
+
+#' summarData
+#' 
+#' Calculates the data for summaryTables and PassFail used to propagate colouring 
+#' in plotQC. 
+#' @param dae DataElement 
+#' @return list of data per plate
+#' @import stats
 summaryData <- function(dae){
   QCLTR <- list()
   

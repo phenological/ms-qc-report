@@ -4,7 +4,7 @@
 \alias{plotQC}
 \title{plotQC}
 \usage{
-plotQC(dae, optn = list())
+plotQC(dae, scale = TRUE, optns = list())
 }
 \arguments{
 \item{dae}{\itemize{

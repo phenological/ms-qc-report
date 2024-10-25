@@ -1,9 +1,17 @@
-#stats
-# QC summary data and table. CAUTION or PASS. Criteria for PASS, must meet all 3 of LTR RSD, 
-# R2 is ≥ 0.99
-# totalQCInjectionPass fraction of qc samples with 80=< `Accuracy/Recovery[%]` =< 120 
-# totalQCPass(%), percent of qc injections that have 80=< `Accuracy/Recovery[%]` =< 120. Pass needs to be ≥ 66% (uses qc sampleType)
-# LTR RSD is ≤ 20 or "N/A"b(uses ltr sampleType Quantity)
+#'summaryTables
+#'
+#' Displays status (pass or caution) for each analyte in each plate in table format.
+#' @param dae - dae of targeted Mass Spectrometry.
+#' @return list of tables and matching data with a slot for each plate. Criteria 
+#' for PASS, must meet all 3 criteria of R2 is ≥ 0.99, LTR RSD is ≤ 20 or "N/A" 
+#' (uses ltr sampleType Quantity), totalQCInjectionPass fraction of qc samples 
+#' with 80=< Accuracy/Recovery`[%]` =< 120 totalQCPass(%), percent of qc injections 
+#' that have 80=< Accuracy/Recovery`[%]` =< 120. Pass needs to be ≥ 66% (uses qc sampleType)
+#'
+#' @export
+#' @import gt
+#' @importFrom reshape2 melt
+
 
 #make NA for qc related stuff 0, RSD of Nan can be NA and flag a caution
 
