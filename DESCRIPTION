@@ -1,4 +1,4 @@
-Package: qc.ms.report
+Package: ms.qc.report
 Title: Generates graphics for MS QC reports
 Version: 0.0.0.9000
 Authors@R: 
@@ -10,16 +10,18 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports: 
+    fusion,
     ggplot2,
     ggpubr,
     grid,
+    gt,
+    htmltools,
     patchwork,
     reshape2,
     roxygen2,
     stats,
     utils
 Suggests:
-    testthat (>= 3.0.0),
-    testthat # for testing
+    testthat (>= 3.0.0)
 LazyData: true
 Config/testthat/edition: 3

@@ -19,3 +19,6 @@ The path to the generated HTML report.
 \description{
 This function generates an HTML report using an R Markdown template.
 }
+\examples{
+#generateReport(data = bio, output_file = "~/Desktop/report.html")
+}

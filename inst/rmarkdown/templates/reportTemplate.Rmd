@@ -1,7 +1,7 @@
 ---
-title: "reportTemplate"
+title: "`r params$title`"
 # author: "Lucy Grigoroff"
-# date: "2024-10-25"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`" 
 output: html_document
 params: 
   title: "QC Report"
@@ -13,33 +13,35 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## QC Summary Tables 
-```{r pressure, echo=FALSE}
-# Generate tables from summaryTables() function
-table_data <- summaryTables(params$data)
+```{r pressure1, echo=FALSE}
+# Use tagList to collect and render HTML tables properly in a loop
+html_output <- tagList()
 
-# Print each table in table_data
 for (table_name in names(table_data[["tables"]])) {
   table <- table_data[["tables"]][[table_name]]
   
-  # Print a title for each table
-  cat("### Table for ", table_name, "\n\n")
+  # Add a title for each table
+  html_output <- tagAppendChild(html_output, h3(paste("Table for", table_name)))
   
-  # Render each table
-  print(knitr::kable(table, caption = paste("Table for", table_name), format = "html"))
-  cat("\n\n")
+  # Append table to html_output
+  if (inherits(table, "gt_tbl")) {
+    html_output <- tagAppendChild(html_output, table)  # Append gt table
+  } else {
+    html_output <- tagAppendChild(html_output, knitr::kable(table, caption = paste("Table for", table_name), format = "html"))
+  }
 }
 
+# Render all tables at once
+html_output
 ```
 
 ## Analyte Plots
 
-```{r pressure, echo=FALSE}
+```{r pressure2, fig.width = 12, fig.height = 6, echo=FALSE}
 plot_data <- plotQC(params$data, scale = T)
 
 # Loop over each plot in plot_data
 for (i in seq_along(plot_data)) {
-  cat("### Plot ", i, "\n\n")
-  
   # Display each plot
   print(plot_data[[i]])
   cat("\n\n")
