@@ -6,22 +6,25 @@
 #' @param dae DataElement 
 #' @return list of data per plate
 #' @import stats
-summaryData <- function(dae){
+summaryData <- function(dae = "", file = ""){
   QCLTR <- list()
   
-  for(i in  1:length(dae@obsDescr)){
-    df <- bio@obsDescr[[i]]
-    if(any(grepl("\\[IS\\]", df$AnalyteName))) next
-    idx<- which(df$sampleType == "qc" | df$sampleType == "ltr")
-    cols <- c("AnalyteName", 
-              "sampleID", 
-              "Quantity", 
-              "Accuracy/Recovery[%]", 
-              "R2", 
-              "plateID", 
-              "sampleType")
-    QCLTR[[i]] <- df[idx, cols]
-    
+  #if DAE
+  if(is(dae)[1] == "dataElement" && file == ""){
+    for(i in  1:length(dae@obsDescr)){
+      df <- bio@obsDescr[[i]]
+      if(any(grepl("\\[IS\\]", df$AnalyteName))) next
+      idx<- which(df$sampleType == "qc" | df$sampleType == "ltr")
+      cols <- c("AnalyteName", 
+                "sampleID", 
+                "Quantity", 
+                "Accuracy/Recovery[%]", 
+                "R2", 
+                "plateID", 
+                "sampleType")
+      QCLTR[[i]] <- df[idx, cols]
+      
+    }
   }
   
   all <- do.call(rbind, QCLTR)
@@ -98,6 +101,30 @@ summaryData <- function(dae){
     QCLTRData[[plate]] <- result_df
     
   }
+  
+  
+  #LTR RSD across all plates
+  result_df <- data.frame(AnalyteName = unique(all$AnalyteName),
+                          LTR_RSD = numeric(length(unique(all$AnalyteName))),
+                          stringsAsFactors = FALSE)
+  
+  for (analyte in unique(all$AnalyteName)) {
+    ## Calculate LTR RSD (numeric)
+    ltr_data <- all[all$AnalyteName == analyte, ]
+  
+    if (nrow(ltr_data) > 1) {
+      rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
+      if(rsd == "NaN"){
+        rsd <- NA
+      }
+      result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- round(rsd, 2)
+    } else {
+      result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- NA  # Not enough data for RSD calculation
+    }
+    
+  }
+  QCLTRData[["allPlates"]] <- result_df
+  
   return(QCLTRData)
 }
 

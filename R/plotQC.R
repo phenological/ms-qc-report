@@ -20,6 +20,9 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
   
   QCLTRData <- summaryData(dae = dae)
   
+  #don't need allPlates slot
+  QCLTRData[["allPlates"]] <- NULL
+  
   plots <- list()
   for(i in 1:length(dae@obsDescr)){
     df <- bio@obsDescr[[i]]

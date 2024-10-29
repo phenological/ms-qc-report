@@ -9,6 +9,7 @@ params:
 ---
 
 ```{r setup, include=FALSE}
+library(htmltools)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -16,6 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r pressure1, echo=FALSE}
 # Use tagList to collect and render HTML tables properly in a loop
 html_output <- tagList()
+table_data <- summaryTables(dae = params$data)
 
 for (table_name in names(table_data[["tables"]])) {
   table <- table_data[["tables"]][[table_name]]

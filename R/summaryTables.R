@@ -46,6 +46,10 @@ summaryTables <- function(dae){
       rotated_df <- cbind(rotated_df, metric_values)
     }
     
+    if(plate == "allPlates"){
+      rotated_df <- rotated_df[which(rotated_df$Metric == "LTR_RSD"),]
+    }
+    
     # Set column names for the rotated data frame
     colnames(rotated_df) <- c("Metric", analyte_names)
     
@@ -57,33 +61,37 @@ summaryTables <- function(dae){
       title = paste(plate)
     )
     
-    # Loop through each analyte column to apply color coding for PassFail
-    for (analyte in colnames(rotated_df)[-1]) {  # Skip the Metric column
-      # Get the PassFail value for the current analyte
-      pass_fail_value <- rotated_df[rotated_df$Metric == "PassFail", analyte]
-      
-      # Set color based on the PassFail value
-      if (pass_fail_value == "CAUTION") {
-        color <- "red"
-      } else if (pass_fail_value == "PASS") {
-        color <- "green"
-      } else {
-        color <- "white"  # Default color if it's neither
-      }
-      
-      # Apply the color to the PassFail row
-      table_output <- tab_style(
-        table_output,
-        style = cell_fill(color = color),
-        locations = cells_body(
-          rows = Metric == "PassFail",
-          columns = !!analyte
+    if(plate != "allPlates"){
+      # Loop through each analyte column to apply color coding for PassFail
+      for (analyte in colnames(rotated_df)[-1]) {  # Skip the Metric column
+        # Get the PassFail value for the current analyte
+        pass_fail_value <- rotated_df[rotated_df$Metric == "PassFail", analyte]
+        
+        # Set color based on the PassFail value
+        if (pass_fail_value == "CAUTION") {
+          color <- "red"
+        } else if (pass_fail_value == "PASS") {
+          color <- "green"
+        } else {
+          color <- "white"  # Default color if it's neither
+        }
+        
+        # Apply the color to the PassFail row
+        table_output <- tab_style(
+          table_output,
+          style = cell_fill(color = color),
+          locations = cells_body(
+            rows = Metric == "PassFail",
+            columns = !!analyte
+          )
         )
-      )
+      }
     }
+
     QCLTRTables[[plate]] <- table_output
     }
     
+  
   QCLTRResults <- list(data = QCLTRData,
                        tables = QCLTRTables)
   
