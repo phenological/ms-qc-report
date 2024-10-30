@@ -4,7 +4,12 @@
 \alias{generateReport}
 \title{Generate an HTML Report}
 \usage{
-generateReport(data, title = "QC Report", output_file = "report.html")
+generateReport(
+  data,
+  title = "QC Report",
+  output_file = "report.html",
+  scale = TRUE
+)
 }
 \arguments{
 \item{data}{The dataset (dataElement) to be included in the report.}

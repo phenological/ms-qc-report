@@ -110,7 +110,7 @@ summaryData <- function(dae = "", file = ""){
   
   for (analyte in unique(all$AnalyteName)) {
     ## Calculate LTR RSD (numeric)
-    ltr_data <- all[all$AnalyteName == analyte, ]
+    ltr_data <- all[all$AnalyteName == analyte & all$sampleType == "ltr", ]
   
     if (nrow(ltr_data) > 1) {
       rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100

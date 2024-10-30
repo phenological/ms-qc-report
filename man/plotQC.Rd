@@ -11,10 +11,11 @@ plotQC(dae, scale = TRUE, optns = list())
 \item dae of targeted Mass Spectrometry.
 }}
 
-\item{optns}{list of options
-\itemize{
-\item scale - Boolean. TRUE if the data should be log10(value + 1)
+\item{scale}{\itemize{
+\item Boolean. TRUE if the data should be log10(value + 1)
 }}
+
+\item{optns}{list of options}
 }
 \value{
 list of plots with a slot for each analyte.

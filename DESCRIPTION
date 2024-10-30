@@ -18,6 +18,7 @@ Imports:
     htmltools,
     patchwork,
     reshape2,
+    rmarkdown,
     roxygen2,
     stats,
     utils

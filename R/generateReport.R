@@ -10,7 +10,7 @@
 #' @return The path to the generated HTML report.
 #' @export
 
-generateReport <- function(data, title = "QC Report", output_file = "report.html") {
+generateReport <- function(data, title = "QC Report", output_file = "report.html", scale = TRUE) {
   # Define the path to the Rmd template
   rmd_file <- system.file("rmarkdown/templates/reportTemplate.Rmd", package = "ms.qc.report")
   # Check if the Rmd template is available
@@ -23,7 +23,8 @@ generateReport <- function(data, title = "QC Report", output_file = "report.html
                     output_file = output_file, 
                     params = list(
                       title = title,
-                      data = data
+                      data = data,
+                      scale = scale
                     ),
                     envir = new.env(parent = globalenv())  # Use a new environment for rendering
   )

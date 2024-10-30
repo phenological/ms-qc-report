@@ -3,9 +3,7 @@
 #'Plots sample types across plates, excluding blanks.
 #' @param dae - dae of targeted Mass Spectrometry.
 #' @param optns list of options
-#' \itemize{
-#'    \item scale - Boolean. TRUE if the data should be log10(value + 1)
-#' }
+#' @param scale - Boolean. TRUE if the data should be log10(value + 1)
 #' @return list of plots with a slot for each analyte.
 #'
 #' @export
@@ -140,7 +138,8 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
                 ymax = Inf, 
                 alpha = 0.3, 
                 inherit.aes = FALSE) +
-      geom_point() +
+      geom_point(data = subset(df_long, sampleType != "ltr")) +  # Plot all other sampleTypes first
+      geom_point(data = subset(df_long, sampleType == "ltr")) + 
       facet_grid(rows = vars(variable),
                  cols = vars(plateID),
                  scales = "free_y", switch = "both")  +  # Facet by column names
