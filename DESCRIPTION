@@ -16,6 +16,7 @@ Imports:
     grid,
     gt,
     htmltools,
+    ms.parser,
     patchwork,
     reshape2,
     rmarkdown,

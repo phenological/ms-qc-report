@@ -1,16 +1,81 @@
 
-#' summarData
+#' summaryData
 #' 
 #' Calculates the data for summaryTables and PassFail used to propagate colouring 
 #' in plotQC. 
 #' @param dae DataElement 
+#' @param file path to a folder of multiple files or path to a single file.
 #' @return list of data per plate
 #' @import stats
-summaryData <- function(dae = "", file = ""){
+#' @import ms.parser
+summaryData <- function(dae = NULL, file = NULL){
   QCLTR <- list()
   
-  #if DAE
-  if(is(dae)[1] == "dataElement" && file == ""){
+  ####if TSV#######
+  if(is(dae)[1] != "dataElement" && !(is.null(file))){
+  
+    folder <- file.path(file)
+    
+    plates <- dir(folder, pattern = "\\.TSV$")
+    
+    #if there is only one TSV
+    if(identical(plates, character(0))){
+      plates <- file
+      
+      d <- list()
+      for (i in plates) {
+        d[[i]] <- readAA(file = plates, 
+                         optns = list())
+      }
+    } else{ #if there are multiple TSVs
+      d <- list()
+      for (i in plates) {
+        d[[i]] <- readAA(file = file.path(folder, i), 
+                         optns = list())
+      }
+    }
+    
+    DT_to_append <- do.call(rbind, d)
+    obsCols <- c("Quantity", "Accuracy/Recovery[%]",  "R2", "plateID")
+    #remove internal standards
+    idx <- which(!grepl("\\[IS\\]", DT_to_append$AnalyteName) & 
+                   (DT_to_append$sampleType == "qc" | DT_to_append$sampleType == "ltr") & 
+                   DT_to_append$paramName %in% obsCols)
+    
+    result <- DT_to_append[idx,]
+    
+    analytes <- unique(result$AnalyteName)
+    
+    QCLTR <- list()
+    for(analyte in analytes){
+      idx <- which(result$AnalyteName == analyte)
+      newish <- result[idx, ]
+      newish <- newish[which(newish$paramName %in% obsCols),]
+      
+      # Use reshape to convert long to wide
+      reshaped_df <- reshape(newish, 
+                             idvar = c("sampleID", "AnalysisName", "AnalyteName", "projectName", 
+                                       "cohortName", "sampleType", "sampleMatrixType"), 
+                             timevar = "paramName", 
+                             direction = "wide")
+      
+      # Clean up column names by removing the "paramValue." prefix added during reshaping
+      colnames(reshaped_df) <- gsub("paramValue\\.", "", colnames(reshaped_df))
+      cols <- c("AnalyteName", 
+                "sampleID", 
+                "Quantity", 
+                "Accuracy/Recovery[%]", 
+                "R2", 
+                "plateID", 
+                "sampleType")
+      
+      QCLTR[[analyte]] <- reshaped_df[,cols]
+    }
+   
+  }
+  
+  ####if DAE#####
+  if(is(dae)[1] == "dataElement" && is.null(file)){
     for(i in  1:length(dae@obsDescr)){
       df <- bio@obsDescr[[i]]
       if(any(grepl("\\[IS\\]", df$AnalyteName))) next

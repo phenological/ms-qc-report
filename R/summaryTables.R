@@ -2,6 +2,7 @@
 #'
 #' Displays status (pass or caution) for each analyte in each plate in table format.
 #' @param dae - dae of targeted Mass Spectrometry.
+#' @param file -path to a folder of multiple files or path to a single file. 
 #' @return list of tables and matching data with a slot for each plate. Criteria 
 #' for PASS, must meet all 3 criteria of R2 is ≥ 0.99, LTR RSD is ≤ 20 or "N/A" 
 #' (uses ltr sampleType Quantity), totalQCInjectionPass fraction of qc samples 
@@ -15,9 +16,9 @@
 
 #make NA for qc related stuff 0, RSD of Nan can be NA and flag a caution
 
-summaryTables <- function(dae){
+summaryTables <- function(dae = NULL, file = NULL){
 
-  QCLTRData <- summaryData(dae = dae)
+  QCLTRData <- summaryData(dae = dae, file = file)
   
   QCLTRTables <- list()
     #########table formatting#############

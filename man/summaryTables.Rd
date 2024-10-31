@@ -4,12 +4,14 @@
 \alias{summaryTables}
 \title{summaryTables}
 \usage{
-summaryTables(dae)
+summaryTables(dae = NULL, file = NULL)
 }
 \arguments{
 \item{dae}{\itemize{
 \item dae of targeted Mass Spectrometry.
 }}
+
+\item{file}{-path to a folder of multiple files or path to a single file.}
 }
 \value{
 list of tables and matching data with a slot for each plate. Criteria
