@@ -4,7 +4,7 @@
 \alias{summaryTables}
 \title{summaryTables}
 \usage{
-summaryTables(dae = NULL, file = NULL)
+summaryTables(dae = NULL)
 }
 \arguments{
 \item{dae}{\itemize{

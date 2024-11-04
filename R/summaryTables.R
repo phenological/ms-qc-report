@@ -16,9 +16,9 @@
 
 #make NA for qc related stuff 0, RSD of Nan can be NA and flag a caution
 
-summaryTables <- function(dae = NULL, file = NULL){
+summaryTables <- function(dae = NULL){
 
-  QCLTRData <- summaryData(dae = dae, file = file)
+  QCLTRData <- summaryData(dae = dae)
   
   QCLTRTables <- list()
     #########table formatting#############

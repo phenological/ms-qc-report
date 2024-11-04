@@ -5,7 +5,8 @@
 \title{Generate an HTML Report}
 \usage{
 generateReport(
-  data,
+  data = NULL,
+  file = NULL,
   title = "QC Report",
   output_file = "report.html",
   scale = TRUE

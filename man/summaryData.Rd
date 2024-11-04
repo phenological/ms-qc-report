@@ -4,7 +4,7 @@
 \alias{summaryData}
 \title{summaryData}
 \usage{
-summaryData(dae = NULL, file = NULL)
+summaryData(dae = NULL)
 }
 \arguments{
 \item{dae}{DataElement}

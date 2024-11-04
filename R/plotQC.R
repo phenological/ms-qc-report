@@ -14,16 +14,44 @@
 #' @importFrom reshape2 melt
 #'
 
-plotQC <- function(dae, scale = TRUE, optns = list()){
+plotQC <- function(dae = NULL, scale = TRUE, optns = list()){
   
   QCLTRData <- summaryData(dae = dae)
   
   #don't need allPlates slot
   QCLTRData[["allPlates"]] <- NULL
   
+  # if(is(dae)[1] != "dataElement" && !(is.null(file))){
+  #   
+  #   folder <- file.path(file)
+  #   
+  #   plates <- dir(folder, pattern = "\\.TSV$")
+  #   
+  #   #if there is only one TSV
+  #   if(identical(plates, character(0))){
+  #     plates <- file
+  #     
+  #     d <- list()
+  #     for (i in plates) {
+  #       d[[i]] <- readAA(file = plates, 
+  #                        optns = list())
+  #     }
+  #   } else{ #if there are multiple TSVs
+  #     d <- list()
+  #     for (i in plates) {
+  #       d[[i]] <- readAA(file = file.path(folder, i), 
+  #                        optns = list())
+  #     }
+  #   }
+  #  result <- do.call(rbind, d)
+  # 
+  #   dae <- makeAAdae(result = result)
+  #   
+  #   }
+  
   plots <- list()
   for(i in 1:length(dae@obsDescr)){
-    df <- bio@obsDescr[[i]]
+    df <- dae@obsDescr[[i]]
     #remove IS
     if(any(grepl("\\[IS\\]", df$AnalyteName))) next
     
@@ -103,7 +131,10 @@ plotQC <- function(dae, scale = TRUE, optns = list()){
     
     #remove blanks
     idx <- which(df$sampleType == "blank")
-    df <- df[-idx, ]
+    
+    if(length(idx>0)){
+      df <- df[-idx, ]
+    }
     
     #pass/fail information
 
