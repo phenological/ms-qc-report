@@ -25,6 +25,10 @@ an order from Acquisition date (if present for all plates), or name order.}
 \item{title}{The title of the report.}
 
 \item{output_file}{The name of the output HTML file.}
+
+\item{scale}{\itemize{
+\item Boolean. TRUE if the data should be log10(value + 1)
+}}
 }
 \value{
 The path to the generated HTML report.

@@ -1,7 +1,10 @@
-
+#' makeAAdae
+#' @param result results from SQLite database
+#' @param file Path name to folder containing files or path name to file.
 #' @import ms.parser
 #' @import fusion
 #' @import reshape2
+#' @return data element
 #' @export
 makeAAdae <- function(result = NULL, file = NULL){
   

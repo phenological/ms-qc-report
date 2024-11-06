@@ -8,7 +8,7 @@
 #' @import stats
 #' @import fusion
 #' @import ms.parser
-summaryData <- function(dae = NULL){
+summaryData <- function(dae){
   QCLTR <- list()
 
     for(i in  1:length(dae@obsDescr)){

@@ -4,7 +4,8 @@
 #' 
 #' @param data The dataset (dataElement) to be included in the report.
 #' @param title The title of the report.
-#' @param file Path name to folder containing files or path name to file. 
+#' @param file Path name to folder containing files or path name to file.
+#' @param scale - Boolean. TRUE if the data should be log10(value + 1) 
 #' @param plateOrder Character vector of order plates should appear in. For 
 #' example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in 
 #' an order from Acquisition date (if present for all plates), or name order.
