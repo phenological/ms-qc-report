@@ -16,7 +16,7 @@ test_that("file of TSV to dae works",{
 })
 
 test_that("single TSV to dae works",{
-  tsvTest <- ms.qc.report:::makeAAdae(result = NULL, file = "~/git/phenological/ms-qc-report/inst/extdata/PLA1.TSV")
+  tsvTest <- ms.qc.report:::makeAAdae(result = NULL, file = "~/git/phenological/ms-qc-report/inst/extdata/plaAA.TSV")
   expect_true(object = is(tsvTest)[1] == "dataElement")
   
   expect_false(object = "Acquisition Date" %in% colnames(tsvTest@obsDescr[[1]]))
