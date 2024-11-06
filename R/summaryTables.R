@@ -2,7 +2,9 @@
 #'
 #' Displays status (pass or caution) for each analyte in each plate in table format.
 #' @param dae - dae of targeted Mass Spectrometry.
-#' @param file -path to a folder of multiple files or path to a single file. 
+#' @param plateOrder Character vector of order plates should appear in. For 
+#' example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in 
+#' an order from Acquisition date (if present for all plates), or name order.
 #' @return list of tables and matching data with a slot for each plate. Criteria 
 #' for PASS, must meet all 3 criteria of R2 is ≥ 0.99, LTR RSD is ≤ 20 or "N/A" 
 #' (uses ltr sampleType Quantity), totalQCInjectionPass fraction of qc samples 
@@ -16,13 +18,35 @@
 
 #make NA for qc related stuff 0, RSD of Nan can be NA and flag a caution
 
-summaryTables <- function(dae = NULL){
+summaryTables <- function(dae = NULL, plateOrder = NULL){
 
   QCLTRData <- summaryData(dae = dae)
   
+  ######Plate Order#######
+  df <- dae@obsDescr[[1]]
+  if("Acquisition Date" %in% names(df) && all(!is.na(df$`Acquisition Date`)) & is.null(plateOrder)){
+    #factor plates
+    plate_min_times <- aggregate(`Acquisition Date` ~ plateID, data = df, min)
+    
+    # Order plateIDs by their minimum Acquisition Time
+    ordered_plateIDs <- plate_min_times$plateID[order(plate_min_times$`Acquisition Date`)]
+    plateOrder <- ordered_plateIDs
+  }
+  
+  if((any(is.na(df$`Acquisition Date`)) | !("Acquisition Date" %in% names(df))) & is.null(plateOrder)){
+    plateOrder <- names(QCLTRData)
+  }
+  
+  if(!is.null(plateOrder)){
+  }
+  
+  # Order the plate names in QCLTRData based on plateOrder
+  ordered_plate_names <- intersect(plateOrder, names(QCLTRData))
+  QCLTRData <- QCLTRData[ordered_plate_names]
+  
   QCLTRTables <- list()
     #########table formatting#############
-  for(plate in names(QCLTRData)){
+  for(plate in ordered_plate_names){
     
     result_df <- QCLTRData[[plate]]
     # Get unique analyte names

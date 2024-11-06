@@ -7,6 +7,7 @@
 generateReport(
   data = NULL,
   file = NULL,
+  plateOrder = NULL,
   title = "QC Report",
   output_file = "report.html",
   scale = TRUE
@@ -14,6 +15,12 @@ generateReport(
 }
 \arguments{
 \item{data}{The dataset (dataElement) to be included in the report.}
+
+\item{file}{Path name to folder containing files or path name to file.}
+
+\item{plateOrder}{Character vector of order plates should appear in. For
+example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in
+an order from Acquisition date (if present for all plates), or name order.}
 
 \item{title}{The title of the report.}
 

@@ -4,14 +4,16 @@
 \alias{summaryTables}
 \title{summaryTables}
 \usage{
-summaryTables(dae = NULL)
+summaryTables(dae = NULL, plateOrder = NULL)
 }
 \arguments{
 \item{dae}{\itemize{
 \item dae of targeted Mass Spectrometry.
 }}
 
-\item{file}{-path to a folder of multiple files or path to a single file.}
+\item{plateOrder}{Character vector of order plates should appear in. For
+example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in
+an order from Acquisition date (if present for all plates), or name order.}
 }
 \value{
 list of tables and matching data with a slot for each plate. Criteria

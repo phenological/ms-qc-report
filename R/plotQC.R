@@ -1,9 +1,13 @@
 #'plotQC
 #'
-#'Plots sample types across plates, excluding blanks.
+#'Plots sample types across plates, excluding blanks. If Acquisition Date is 
+#'available and there are no NAs, plates appear in date order, otherwise in name
+#'order or order provided (see plateOrder argument).
 #' @param dae - dae of targeted Mass Spectrometry.
 #' @param optns list of options
 #' @param scale - Boolean. TRUE if the data should be log10(value + 1)
+#' @param plateOrder NULL or character vector of order of plates desired. 
+#' Default is NULL. Supply as c("COVp002", "COVp001", "COVp020") etc.
 #' @return list of plots with a slot for each analyte.
 #'
 #' @export
@@ -14,40 +18,12 @@
 #' @importFrom reshape2 melt
 #'
 
-plotQC <- function(dae = NULL, scale = TRUE, optns = list()){
+plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
   
   QCLTRData <- summaryData(dae = dae)
   
   #don't need allPlates slot
   QCLTRData[["allPlates"]] <- NULL
-  
-  # if(is(dae)[1] != "dataElement" && !(is.null(file))){
-  #   
-  #   folder <- file.path(file)
-  #   
-  #   plates <- dir(folder, pattern = "\\.TSV$")
-  #   
-  #   #if there is only one TSV
-  #   if(identical(plates, character(0))){
-  #     plates <- file
-  #     
-  #     d <- list()
-  #     for (i in plates) {
-  #       d[[i]] <- readAA(file = plates, 
-  #                        optns = list())
-  #     }
-  #   } else{ #if there are multiple TSVs
-  #     d <- list()
-  #     for (i in plates) {
-  #       d[[i]] <- readAA(file = file.path(folder, i), 
-  #                        optns = list())
-  #     }
-  #   }
-  #  result <- do.call(rbind, d)
-  # 
-  #   dae <- makeAAdae(result = result)
-  #   
-  #   }
   
   plots <- list()
   for(i in 1:length(dae@obsDescr)){
@@ -142,7 +118,29 @@ plotQC <- function(dae = NULL, scale = TRUE, optns = list()){
     for(plate in unique(df$plateID)){
       df[which(df$plateID == plate), "PassFail"] <- QCLTRData[[plate]][which(QCLTRData[[plate]]$AnalyteName == unique(df$AnalyteName)), "PassFail"]
     }
+    ######Plate Order#######
     
+    if("Acquisition Date" %in% names(df) && all(!is.na(df$`Acquisition Date`)) & is.null(plateOrder)){
+      #factor plates
+      plate_min_times <- aggregate(`Acquisition Date` ~ plateID, data = df, min)
+      
+      # Order plateIDs by their minimum Acquisition Time
+      ordered_plateIDs <- plate_min_times$plateID[order(plate_min_times$`Acquisition Date`)]
+      
+      # Factorize plateID in df based on the sorted order
+      df$plateID <- factor(df$plateID, levels = ordered_plateIDs)
+      note <- "Plates automatically ordered by Acquisition Date"
+    }
+    
+    if((any(is.na(df$`Acquisition Date`)) | !("Acquisition Date" %in% names(df))) && is.null(plateOrder)){
+      print(paste0("No Acquisition Date present or it contains NAs, please provide plateOrder, else plate name is used for ", names(dae@obsDescr)[[i]]))
+      note <- "Plates ordered by name"
+    }
+    
+    if(!is.null(plateOrder)){
+      df$plateID <- factor(df$plateID, levels = plateOrder)
+      note <- "Plates in order manually provided"
+    }
     #transform to long
     y_columns <- c("Area", "AreaSIL", "Response", "Conc")
     df_long <- melt(df, id.vars = c("plateExperimentID", "sampleType", "plateID", "PassFail"), measure.vars = y_columns)
@@ -214,7 +212,8 @@ plotQC <- function(dae = NULL, scale = TRUE, optns = list()){
                         xmax = Inf, 
                         ymin = Inf, 
                         ymax = Inf) +
-      ggtitle(unique(df$AnalyteName))
+      ggtitle(unique(df$AnalyteName))+
+      labs(caption = paste0(note))
     
     #make boxPLot
     box <-
@@ -261,3 +260,4 @@ plotQC <- function(dae = NULL, scale = TRUE, optns = list()){
   
   return(plots)
 }
+

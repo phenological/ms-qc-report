@@ -8,8 +8,6 @@ summaryData(dae = NULL)
 }
 \arguments{
 \item{dae}{DataElement}
-
-\item{file}{path to a folder of multiple files or path to a single file.}
 }
 \value{
 list of data per plate

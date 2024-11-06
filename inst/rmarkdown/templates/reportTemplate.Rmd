@@ -7,6 +7,7 @@ params:
   title: "QC Report"
   data: NULL
   file: NULL
+  plateOrder: NULL
   scale: TRUE
 ---
 
@@ -27,7 +28,7 @@ if(is.null(params$data)){
 
 # Use tagList to collect and render HTML tables properly in a loop
 html_output <- tagList()
-table_data <- summaryTables(dae = dae)
+table_data <- summaryTables(dae = dae, plateOrder = params$plateOrder)
 
 for (table_name in names(table_data[["tables"]])) {
   table <- table_data[["tables"]][[table_name]]
@@ -51,7 +52,7 @@ html_output
 
 ```{r pressure2, fig.width = 12, fig.height = 6, echo=FALSE}
 scale <- params$scale
-plot_data <- plotQC(dae = dae, scale = scale)
+plot_data <- plotQC(dae = dae, scale = params$scale, plateOrder = params$plateOrder)
 
 # Loop over each plot in plot_data
 for (i in seq_along(plot_data)) {
@@ -60,5 +61,3 @@ for (i in seq_along(plot_data)) {
   cat("\n\n")
 }
 ```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

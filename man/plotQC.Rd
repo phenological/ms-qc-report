@@ -4,7 +4,7 @@
 \alias{plotQC}
 \title{plotQC}
 \usage{
-plotQC(dae = NULL, scale = TRUE, optns = list())
+plotQC(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list())
 }
 \arguments{
 \item{dae}{\itemize{
@@ -15,11 +15,16 @@ plotQC(dae = NULL, scale = TRUE, optns = list())
 \item Boolean. TRUE if the data should be log10(value + 1)
 }}
 
+\item{plateOrder}{NULL or character vector of order of plates desired.
+Default is NULL. Supply as c("COVp002", "COVp001", "COVp020") etc.}
+
 \item{optns}{list of options}
 }
 \value{
 list of plots with a slot for each analyte.
 }
 \description{
-Plots sample types across plates, excluding blanks.
+Plots sample types across plates, excluding blanks. If Acquisition Date is
+available and there are no NAs, plates appear in date order, otherwise in name
+order or order provided (see plateOrder argument).
 }
