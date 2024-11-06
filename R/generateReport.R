@@ -10,8 +10,6 @@
 #' example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in 
 #' an order from Acquisition date (if present for all plates), or name order.
 #' @param output_file The name of the output HTML file.
-#' @examples
-#' #generateReport(data = bio, output_file = "~/Desktop/report.html")
 #' @return The path to the generated HTML report.
 #' @export
 

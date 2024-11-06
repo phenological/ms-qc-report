@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(qc.ms.report)
+library(ms.qc.report)
 
-test_check("qc.ms.report")
+test_check("ms.qc.report")
