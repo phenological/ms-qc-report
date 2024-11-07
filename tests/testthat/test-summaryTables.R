@@ -46,3 +46,5 @@ test_that("order observed for tables", {
   expect_true(names(Manual$data)[2] == names(Manual$tables)[2])
   expect_true(names(Manual$data)[2] == "JUVp003")
 })
+
+dae <- makeAAdae(result = NULL, file = "~/git/phenological/ms-parser/inst/extdata/")

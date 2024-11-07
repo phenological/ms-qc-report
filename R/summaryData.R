@@ -89,12 +89,18 @@ summaryData <- function(dae){
       }
       
       result_df$PassFail <- ifelse(
-        (result_df$R2 >= 0.99) +                                  # Check if R2 is ≥ 0.99
-          (result_df$totalQCPassPerc >= 66) +                       # Check if totalQCPass(%) is ≥ 66%
-          (result_df$LTR_RSD <= 20 & !is.na(result_df$LTR_RSD))    # Check if LTR RSD is ≤ 20 
-        >= 3,                                                     # At least 3 of the conditions must be TRUE
-        "PASS", "CAUTION"                                             # Return "PASS" if TRUE, otherwise "CAUTION"
+        is.na(result_df$R2) | is.na(result_df$totalQCPassPerc) | is.na(result_df$LTR_RSD),  # If any value is NA
+        "CAUTION",  # Assign "CAUTION" if there's any NA
+        
+        # Otherwise, check if at least 3 conditions are met
+        ifelse(
+          (result_df$R2 >= 0.99) +    # Check if R2 is ≥ 0.99                             
+            (result_df$totalQCPassPerc >= 66) + # Check if totalQCPass(%) is ≥ 66%                      
+            (result_df$LTR_RSD <= 20 & !is.na(result_df$LTR_RSD)) >= 3,  # Check if LTR RSD is ≤ 20 
+          "PASS", "CAUTION"                                        # At least 3 of the conditions must be TRUE
+        )
       )
+    
     }
     
     # Store the result data frame for the current PlateID in the list

@@ -93,7 +93,7 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
         pass_fail_value <- rotated_df[rotated_df$Metric == "PassFail", analyte]
         
         # Set color based on the PassFail value
-        if (pass_fail_value == "CAUTION") {
+        if (pass_fail_value == "CAUTION" | is.na(pass_fail_value)) {
           color <- "red"
         } else if (pass_fail_value == "PASS") {
           color <- "green"

@@ -28,7 +28,8 @@ generateReport <- function(data = NULL, file = NULL, plateOrder = NULL, title = 
                       title = title,
                       data = data,
                       file = file,
-                      scale = scale
+                      scale = scale,
+                      plateOrder = plateOrder
                     ),
                     envir = new.env(parent = globalenv())  # Use a new environment for rendering
   )

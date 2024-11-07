@@ -4,6 +4,7 @@
 #' @import ms.parser
 #' @import fusion
 #' @import reshape2
+#' @import methods
 #' @return data element
 #' @export
 makeAAdae <- function(result = NULL, file = NULL){

@@ -52,7 +52,7 @@ html_output
 
 ```{r pressure2, fig.width = 12, fig.height = 6, echo=FALSE}
 scale <- params$scale
-plot_data <- plotQC(dae = dae, scale = params$scale, plateOrder = params$plateOrder)
+plot_data <- suppressMessages(suppressWarnings(plotQC(dae = dae, scale = params$scale, plateOrder = params$plateOrder)))
 
 # Loop over each plot in plot_data
 for (i in seq_along(plot_data)) {

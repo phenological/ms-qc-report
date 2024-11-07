@@ -133,8 +133,8 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     }
     
     if((any(is.na(df$`Acquisition Date`)) | !("Acquisition Date" %in% names(df))) && is.null(plateOrder)){
-      print(paste0("No Acquisition Date present or it contains NAs, please provide plateOrder, else plate name is used for ", names(dae@obsDescr)[[i]]))
-      note <- "Plates ordered by name"
+      # print(paste0("No Acquisition Date present or it contains NAs, please provide plateOrder, else plate name is used for ", names(dae@obsDescr)[[i]]))
+      note <- "Plates ordered by name (No Acquisition Date or contains NAs, may provide plateOrder)"
     }
     
     if(!is.null(plateOrder)){
