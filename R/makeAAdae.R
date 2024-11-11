@@ -93,25 +93,31 @@ makeAAdae <- function(result = NULL, file = NULL){
     obsDescr[[analyte]] <- reshaped_df
   }
   
-  reference_sampleID <- obsDescr[[1]]$sampleID
+  #original sampleIDs
+  original_sampleIDs <- lapply(obsDescr, function(df) df$sampleID)
   
-  # Check if the sampleID is the same order in all data frames
-  same_order <- sapply(obsDescr, function(df) identical(df$sampleID, reference_sampleID))
+  # reference_sampleID <- obsDescr[[1]]$sampleID
   
-  # Print result
-  if (all(same_order)) {
-    print("The sampleID column is in the same order in all slots.")
-  } else {
-    print("The sampleID column is NOT in the same order in all slots.")
-    # Optionally, you can check which slots have mismatches
-    print(which(!same_order))
-  }
+  # # Check if the sampleID is the same order in all data frames
+  # same_order <- sapply(obsDescr, function(df) identical(df$sampleID, reference_sampleID))
+  # 
+  # # Print result
+  # if (all(same_order)) {
+  #   print("The sampleID column is in the same order in all slots.")
+  # } else {
+  #   print("The sampleID column is NOT in the same order in all slots.")
+  #   # Optionally, you can check which slots have mismatches
+  #   print(which(!same_order))
+  # }
   
   #######make .Data########
   idx <- which(result$paramName == "Quantity")
   newData <- dcast(result[ idx,],
                    AnalysisName + sampleID ~ AnalyteName,
                    value.var = "paramValue")
+  
+  
+  reference_sampleID <- obsDescr[[1]]$sampleID
   
   #ensure in same order as obsDescr
   newData_ordered <- newData[match(reference_sampleID, newData$sampleID), ]
@@ -127,8 +133,61 @@ makeAAdae <- function(result = NULL, file = NULL){
     cat("Mismatches at rows:", mismatch_indices, "\n")
   }
   
-  #drop sampleID and AnalysisName
-  newData_ordered <- newData_ordered[ , -which(names(newData_ordered) %in% c("AnalysisName","sampleID"))]
+  
+  
+  #####fix duplicated sampleIDs for all non samples (ltrs, qc, blanks etc)######
+  for(i in seq_along(obsDescr)){
+    
+    df <- obsDescr[[i]]
+    
+    # Identify duplicated sampleIDs where sampleType is not "sample"
+    idx <- which(duplicated(df$sampleID) & df$sampleType != "sample")
+    if(length(idx) > 0 ){
+      # Loop over the indices of duplicated sampleIDs
+      for (id in idx) {
+        # Extract the plate ID number from the plateID column (e.g., COVp021 -> 21)
+        plate_id_number <- suppressWarnings(as.numeric(sub(".*?(\\d+)$", "\\1", df[id, "plateID"])))
+        if(is.na(plate_id_number)){
+          plate_id_number <- df[id, "plateID"]
+        }
+        # Append the plate ID number to the sampleID (e.g., "sampleID#21")
+        df[id, "sampleID"] <- paste0(df[id, "sampleID"], "#", plate_id_number)
+      }
+      
+    }
+   
+    #are there duplicates left
+    idx <- which(duplicated(df[["sampleID"]]) | 
+                   duplicated(df[["sampleID"]], fromLast = TRUE)) 
+    
+    if(length(idx) > 0){
+      
+      # Loop through each duplicated sampleID and modify it
+      for (id in idx) {
+        # Split AnalysisName by underscore
+        parts <- strsplit(df$AnalysisName[id], "_")[[1]]
+        end <- length(parts)
+        num_part <- suppressWarnings(as.integer(parts[end]))
+        if (is.na(num_part)) {
+          # Append the numeric part to sampleID and break out of the loop
+          df$sampleID[id] <- paste0(df$sampleID[id], ".", parts[end])
+        }
+        
+      }
+    }
+    
+    #are there duplicates left, print them
+    idx <- which(duplicated(df[["sampleID"]]) | 
+                   duplicated(df[["sampleID"]], fromLast = TRUE)) 
+    if(length(idx) > 0){
+      stop(paste0(unique(df[idx, "sampleID"]), "sampleIDs is duplicated, please fix"))
+    } else{
+      obsDescr[[i]]$sampleID <- df$sampleID
+    }
+  }
+
+#drop sampleID and AnalysisName
+newData_ordered <- newData_ordered[ , -which(names(newData_ordered) %in% c("AnalysisName","sampleID"))]
   
   ######make dae########
   da <- new("dataElement",
@@ -137,6 +196,11 @@ makeAAdae <- function(result = NULL, file = NULL){
             varName = unlist(colnames(newData_ordered)),
             type = "T-MS",
             method = "aminoAcids")
-  
+
+
+for (i in seq_along(da@obsDescr)) {
+  da@obsDescr[[i]]$sampleID <- original_sampleIDs[[i]]
+}
+
   return(da)
 }

@@ -71,8 +71,40 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     # Extract numeric part from plateID (removes "COVp")
     df$plateID_numeric <- as.numeric(sub(".*?(\\d+)$", "\\1", df$plateID))
     
-    #add column
-    df$plateExperimentID <- as.integer(gsub(".*_","", sub("_rerun", "", df$AnalysisName)))
+    #add column (auto pick up the counter and deal with any rerun, rederiv etc att he end of analysisname)
+    # df$plateExperimentID <- sapply(strsplit(df$AnalysisName, "_"), function(parts) {
+    #   idx <- length(parts)
+    #   
+    #   # Suppress warnings only for the integer conversion attempt
+    #   last_element <- suppressWarnings(as.integer(parts[idx]))
+    #   
+    #   if (is.na(last_element)) {
+    #     # Try the second last element if the last one isn't numeric
+    #     second_last_element <- suppressWarnings(as.integer(parts[idx - 1]))
+    #     return(second_last_element)
+    #   } else {
+    #     return(last_element)
+    #   }
+    # })
+    df$plateExperimentID <- sapply(strsplit(df$AnalysisName, "_"), function(parts) {
+      idx <- length(parts)
+      
+      # Loop backwards through the parts until we find a numeric value
+      while (idx > 0) {
+        # Suppress warnings during the integer conversion attempt
+        num <- suppressWarnings(as.integer(parts[idx]))
+        
+        if (!is.na(num)) {
+          return(num)
+        }
+        
+        # Move to the previous part if current part is not numeric
+        idx <- idx - 1
+      }
+      
+      # Return NA if no numeric value is found
+      return(NA)
+    })
     
     # Create the runIndex by combining plateID numeric part and plateExperimentID with leading zeros
     df$runIndex <- as.numeric(sprintf("%d.%03d", df$plateID_numeric, df$plateExperimentID))
