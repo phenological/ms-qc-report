@@ -211,13 +211,15 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       scale_color_manual(values = plotColor) +
       xlab("Sample Index") +
       ylab(paste0(ylab)) +
-      theme(strip.text.y.left = element_text(angle = 90),  # Rotate y-axis facet labels
+      theme(plot.caption = element_text(hjust = 0),
+            strip.text.y.left = element_text(angle = 90),  # Rotate y-axis facet labels
             strip.background = element_blank(),  # Optional: remove background from facet labels
             axis.title.y.left = element_text(),
             strip.placement = "outside",
             panel.spacing.x = unit(0, "lines"),
             panel.spacing.y = unit(0, "lines"), 
             legend.position = "bottom", 
+            legend.justification = "left",
             panel.background = element_rect(fill = "white", color = NA)) +
       # Add vertical dashed lines manually
       annotation_custom(grid::linesGrob(y = c(0, 1), 

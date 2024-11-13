@@ -50,14 +50,37 @@ html_output
 
 ## Analyte Plots
 
-```{r pressure2, fig.width = 12, fig.height = 6, echo=FALSE}
+```{r pressure2, fig.width = 24, fig.height = 6, echo = FALSE}
 scale <- params$scale
 plot_data <- suppressMessages(suppressWarnings(plotQC(dae = dae, scale = params$scale, plateOrder = params$plateOrder)))
 
-# Loop over each plot in plot_data
+num_plates <- length(unique(plot_data[[1]]$data$plateID)) 
+fig_width <- max(12, num_plates * 3)  # Adjust multiplier as needed
+```
+<style>
+  .superbigimage{
+      overflow-x:scroll;
+      white-space: nowrap;
+  }
+
+  .superbigimage img{
+     max-width: none;
+  }
+
+
+</style>
+
+<div class="superbigimage">
+
+```{r plot_it , echo = FALSE, fig.width=fig_width, fig.height=6}
+
 for (i in seq_along(plot_data)) {
-  # Display each plot
-  print(plot_data[[i]])
+print(plot_data[[i]])
   cat("\n\n")
 }
 ```
+</div>
+
+
+
+
