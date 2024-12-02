@@ -2,9 +2,10 @@
 #'
 #' This function generates an HTML report using an R Markdown template.
 #' 
-#' @param data The dataset (dataElement) to be included in the report.
+#' @param folder Either a character for the file path or a dataElement to be included in the report.
+#' @param assay Character of "AA", "TRY", "BA" or "SCFA".
 #' @param title The title of the report.
-#' @param file Path name to folder containing files or path name to file.
+#' @param fileType Character "xml", "tsv" or "txt" if supplying file path to the folder argument. 
 #' @param scale - Boolean. TRUE if the data should be log10(value + 1) 
 #' @param plateOrder Character vector of order plates should appear in. For 
 #' example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in 
@@ -13,7 +14,7 @@
 #' @return The path to the generated HTML report.
 #' @export
 
-generateReport <- function(data = NULL, file = NULL, plateOrder = NULL, title = "QC Report", output_file = "report.html", scale = TRUE) {
+generateReport <- function(folder = NULL, fileType = NULL, assay = NULL, plateOrder = NULL, title = "QC Report", output_file = "report.html", scale = TRUE) {
   # Define the path to the Rmd template
   rmd_file <- system.file("rmarkdown/templates/reportTemplate.Rmd", package = "ms.qc.report")
   # Check if the Rmd template is available
@@ -26,8 +27,9 @@ generateReport <- function(data = NULL, file = NULL, plateOrder = NULL, title = 
                     output_file = output_file, 
                     params = list(
                       title = title,
-                      data = data,
-                      file = file,
+                      folder = folder,
+                      fileType = fileType,
+                      assay = assay,
                       scale = scale,
                       plateOrder = plateOrder
                     ),

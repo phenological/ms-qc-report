@@ -5,8 +5,9 @@
 \title{Generate an HTML Report}
 \usage{
 generateReport(
-  data = NULL,
-  file = NULL,
+  folder = NULL,
+  fileType = NULL,
+  assay = NULL,
   plateOrder = NULL,
   title = "QC Report",
   output_file = "report.html",
@@ -14,9 +15,11 @@ generateReport(
 )
 }
 \arguments{
-\item{data}{The dataset (dataElement) to be included in the report.}
+\item{folder}{Either a character for the file path or a dataElement to be included in the report.}
 
-\item{file}{Path name to folder containing files or path name to file.}
+\item{fileType}{Character "xml", "tsv" or "txt" if supplying file path to the folder argument.}
+
+\item{assay}{Character of "AA", "TRY", "BA" or "SCFA".}
 
 \item{plateOrder}{Character vector of order plates should appear in. For
 example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in

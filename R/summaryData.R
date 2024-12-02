@@ -80,7 +80,7 @@ summaryData <- function(dae){
       ltr_data <- analyte_data[analyte_data$sampleType == "ltr", ]
       if (nrow(ltr_data) > 1) {
         rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
-        if(rsd == "NaN"){
+        if(rsd == "NaN" | is.na(rsd)){
           rsd <- NA
         }
         result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- round(rsd, 2)
@@ -120,7 +120,7 @@ summaryData <- function(dae){
   
     if (nrow(ltr_data) > 1) {
       rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
-      if(rsd == "NaN"){
+      if(rsd == "NaN" |is.na(rsd)){
         rsd <- NA
       }
       result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- round(rsd, 2)

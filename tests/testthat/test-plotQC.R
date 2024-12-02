@@ -2,7 +2,7 @@
 test_that("date order works with TSVs", {
 
 #make Acquisition dates for NAs
-  testTsv <- ms.qc.report:::makeAAdae(result = NULL, file = "~/git/phenological/ms-qc-report/inst/extdata/")
+  testTsv <- fusion:::parseMS(folder = "~/git/phenological/ms-qc-report/inst/extdata/", assay = "AA", fileType = "tsv")
   expect_true(object = is(testTsv)[1] == "dataElement")
 # ###name order#####
 plotsAutoName <-

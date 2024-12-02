@@ -2,7 +2,7 @@
 
 test_that(" works", {
 
-  testTsv <- ms.qc.report:::makeAAdae(result = NULL, file = "~/git/phenological/ms-qc-report/inst/extdata/")
+  testTsv <- fusion:::parseMS(folder = "~/git/phenological/ms-qc-report/inst/extdata/", assay = "AA", fileType = "tsv")
   test <- ms.qc.report:::summaryData(dae = testTsv)
 
   expect_contains(object = names(test[[1]]),

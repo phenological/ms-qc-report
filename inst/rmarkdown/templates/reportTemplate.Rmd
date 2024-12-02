@@ -5,20 +5,22 @@ date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output: html_document
 params: 
   title: "QC Report"
-  data: NULL
-  file: NULL
+  folder: NULL
+  assay: NULL
+  fileType: NULL
   plateOrder: NULL
   scale: TRUE
 ---
 
 ```{r setup, include=FALSE}
 library(htmltools)
+library(fusion)
 knitr::opts_chunk$set(echo = TRUE)
 
-if(is.null(params$data)){
-  dae <- makeAAdae(result = params$data, file = params$file)
+if(is(params$folder)[1] == "character"){
+  dae <- parseMS(folder = params$folder, fileType = params$fileType, assay = params$assay)
 }else {
-  dae <- params$data
+  dae <- params$folder
 }
 
 ```

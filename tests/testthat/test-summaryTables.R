@@ -1,7 +1,7 @@
 
 test_that("order observed for tables", {
   #make Acquisition dates for NAs
-  testTsv <- ms.qc.report:::makeAAdae(result = NULL, file = "~/git/phenological/ms-qc-report/inst/extdata/")
+  testTsv <- fusion:::parseMS(folder = "~/git/phenological/ms-qc-report/inst/extdata/", assay = "AA", fileType = "tsv")
 
   AutoName <- summaryTables(dae = testTsv)
   #same order
@@ -47,4 +47,3 @@ test_that("order observed for tables", {
   expect_true(names(Manual$data)[2] == "JUVp003")
 })
 
-dae <- makeAAdae(result = NULL, file = "~/git/phenological/ms-parser/inst/extdata/")
