@@ -86,6 +86,13 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     #     return(last_element)
     #   }
     # })
+    
+    #if -rerun instead of _rerun
+    if (any(grepl("-rerun", df$AnalysisName, ignore.case = TRUE))) {
+      result$AnalysisName <- gsub(pattern = "-rerun", replacement = "_rerun", x = result$AnalysisName,
+                                  ignore.case = FALSE)
+    }
+    
     df$plateExperimentID <- sapply(strsplit(df$AnalysisName, "_"), function(parts) {
       idx <- length(parts)
       
