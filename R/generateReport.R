@@ -3,7 +3,7 @@
 #' This function generates an HTML report using an R Markdown template.
 #' 
 #' @param folder Either a character for the file path or a dataElement to be included in the report.
-#' @param assay Character of "AA", "TRY", "BA" or "SCFA".
+#' @param assay Character of "ddhN", "AA", "TRY", "BA" or "SCFA".
 #' @param title The title of the report.
 #' @param fileType Character "xml", "tsv" or "txt" if supplying file path to the folder argument. 
 #' @param scale - Boolean. TRUE if the data should be log10(value + 1) 

@@ -113,6 +113,15 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       return(NA)
     })
     
+    #sometimes the AnalysisName doesn't have the injection counter included, in older cases where the runID is a number isntead of COVr40 etc, it'll use that instead which ruins the plot. 
+    idx <- which(df$plateExperimentID > 200)
+    
+    if(length(idx) > 0){
+      for (id in idx) {
+      df[id, "plateExperimentID"] <- max(df[which(df$plateExperimentID < 200), "plateExperimentID"]) + 1
+      }
+    }
+    
     # Create the runIndex by combining plateID numeric part and plateExperimentID with leading zeros
     df$runIndex <- as.numeric(sprintf("%d.%03d", df$plateID_numeric, df$plateExperimentID))
     

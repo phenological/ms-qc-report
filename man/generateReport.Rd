@@ -19,7 +19,7 @@ generateReport(
 
 \item{fileType}{Character "xml", "tsv" or "txt" if supplying file path to the folder argument.}
 
-\item{assay}{Character of "AA", "TRY", "BA" or "SCFA".}
+\item{assay}{Character of "ddhN", "AA", "TRY", "BA" or "SCFA".}
 
 \item{plateOrder}{Character vector of order plates should appear in. For
 example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in
