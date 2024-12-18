@@ -75,6 +75,10 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
       rotated_df <- rotated_df[which(rotated_df$Metric == "LTR_RSD"),]
     }
     
+    if(dae@method == "SCFA"){
+      rotated_df$Metric[rotated_df$Metric == "LTR_RSD"] <- "PQC_RSD"
+    }
+    
     # Set column names for the rotated data frame
     colnames(rotated_df) <- c("Metric", analyte_names)
     

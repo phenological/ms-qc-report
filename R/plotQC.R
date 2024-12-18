@@ -71,22 +71,6 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     # Extract numeric part from plateID (removes "COVp")
     df$plateID_numeric <- as.numeric(sub(".*?(\\d+)$", "\\1", df$plateID))
     
-    #add column (auto pick up the counter and deal with any rerun, rederiv etc att he end of analysisname)
-    # df$plateExperimentID <- sapply(strsplit(df$AnalysisName, "_"), function(parts) {
-    #   idx <- length(parts)
-    #   
-    #   # Suppress warnings only for the integer conversion attempt
-    #   last_element <- suppressWarnings(as.integer(parts[idx]))
-    #   
-    #   if (is.na(last_element)) {
-    #     # Try the second last element if the last one isn't numeric
-    #     second_last_element <- suppressWarnings(as.integer(parts[idx - 1]))
-    #     return(second_last_element)
-    #   } else {
-    #     return(last_element)
-    #   }
-    # })
-    
     #if -rerun instead of _rerun
     if (any(grepl("-rerun", df$AnalysisName, ignore.case = TRUE))) {
       result$AnalysisName <- gsub(pattern = "-rerun", replacement = "_rerun", x = result$AnalysisName,
@@ -134,7 +118,8 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       "ltr" = "darkorange",
       "sltr" = "purple3",
       "cal" = "black",
-      "qc" = "black"
+      "qc" = "black",
+      "pqc" ="lightgreen"
     )
     
     plotColor = c(
@@ -142,7 +127,8 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       "ltr" = "black",
       "sltr" = "black",
       "cal" = "black",
-      "qc" = "black"
+      "qc" = "black",
+      "pqc" = "black"
     )
     
     plotShape = c(
@@ -150,7 +136,8 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       "ltr" = 24,
       "sltr" = 25,
       "cal" = 1,
-      "qc" = 4
+      "qc" = 4,
+      "pqc" = 24
     )
     
     #remove blanks

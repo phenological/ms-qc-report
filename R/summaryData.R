@@ -14,7 +14,11 @@ summaryData <- function(dae){
     for(i in  1:length(dae@obsDescr)){
       df <- dae@obsDescr[[i]]
       if(any(grepl("\\[IS\\]", df$AnalyteName))) next
-      idx<- which(df$sampleType == "qc" | df$sampleType == "ltr")
+      
+      if(dae@method == "SCFA"){
+        idx<- which(df$sampleType == "qc" | df$sampleType == "pqc")
+      } else{idx<- which(df$sampleType == "qc" | df$sampleType == "ltr")}
+      
       cols <- c("AnalyteName", 
                 "sampleID", 
                 "Quantity", 
@@ -77,7 +81,10 @@ summaryData <- function(dae){
       }
       
       ## Calculate LTR RSD (numeric)
-      ltr_data <- analyte_data[analyte_data$sampleType == "ltr", ]
+      if(dae@method == "SCFA"){
+        ltr_data <- analyte_data[analyte_data$sampleType == "pqc", ]
+      } else{ltr_data <- analyte_data[analyte_data$sampleType == "ltr", ]}
+      
       if (nrow(ltr_data) > 1) {
         rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
         if(rsd == "NaN" | is.na(rsd)){
@@ -116,8 +123,10 @@ summaryData <- function(dae){
   
   for (analyte in unique(all$AnalyteName)) {
     ## Calculate LTR RSD (numeric)
-    ltr_data <- all[all$AnalyteName == analyte & all$sampleType == "ltr", ]
-  
+    if(dae@method == "SCFA"){
+      ltr_data <- all[all$AnalyteName == analyte & all$sampleType == "pqc", ]
+    }else{ ltr_data <- all[all$AnalyteName == analyte & all$sampleType == "ltr", ]}
+   
     if (nrow(ltr_data) > 1) {
       rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
       if(rsd == "NaN" |is.na(rsd)){
