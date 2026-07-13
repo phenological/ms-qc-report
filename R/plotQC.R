@@ -73,7 +73,7 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     
     #if -rerun instead of _rerun
     if (any(grepl("-rerun", df$AnalysisName, ignore.case = TRUE))) {
-      result$AnalysisName <- gsub(pattern = "-rerun", replacement = "_rerun", x = result$AnalysisName,
+      df$AnalysisName <- gsub(pattern = "-rerun", replacement = "_rerun", x = df$AnalysisName,
                                   ignore.case = FALSE)
     }
     
@@ -185,7 +185,7 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     if(scale == TRUE){
       df_long$value <- log10(df_long$value + 1)
       ylab <- "log10(value + 1)"
-    } else {ylab <- ""}
+    } else {ylab <- "value"}
     
     # Create the plot with log10 transformation
     plot <-
@@ -260,7 +260,8 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
                           shape = sampleType)) +
       facet_wrap(~variable, 
                  ncol = 1, 
-                 strip.position = "right") +
+                 strip.position = "right",
+                 scales = "free_y") +
       geom_boxplot() +
       theme_bw() +
       theme(axis.line = element_line(color='black'),
@@ -269,6 +270,11 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
             panel.grid.minor = element_blank(),
             panel.border = element_blank(),
             axis.ticks.x=element_blank(), 
+            axis.text.x = element_text(
+              angle = 45,
+              vjust = 1,
+              hjust = 1
+            ),
             panel.spacing.y = unit(0, "lines")) +
       xlab("") +
       ylab(paste0("")) +
