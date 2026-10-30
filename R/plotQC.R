@@ -18,7 +18,7 @@
 #' @importFrom reshape2 melt
 #'
 
-plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
+plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list()){
   
   QCLTRData <- summaryData(dae = dae)
   
@@ -28,8 +28,11 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
   plots <- list()
   for(i in 1:length(dae@obsDescr)){
     df <- dae@obsDescr[[i]]
-    #remove IS
-    if(any(grepl("\\[IS\\]", df$AnalyteName))) next
+    df$AnalyteName <- sapply(strsplit(df$AnalyteName, "-"), function(x) x[1])
+    
+    # #remove IS
+    # if(any(grepl("\\[IS\\]", df$AnalyteName))) next
+    if(!any(df$AnalyteName %in% BA_names)) next
     
     # columns
     qCCols <- c(
@@ -38,7 +41,7 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       "AnalyteName",
       "Area",
       "ISTD Area",
-      "relative Area",
+      # "relative Area",
       "Quantity",
       "Expected Quantity",
       "Internal standard used for calibration function calculation")
@@ -48,20 +51,23 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     
     # Rename specific columns in the df
     colnames(df)[colnames(df) == "ISTD Area"] <- "AreaSIL"
-    colnames(df)[colnames(df) == "relative Area"] <- "Response"
+    # colnames(df)[colnames(df) == "relative Area"] <- "Response"
     colnames(df)[colnames(df) == "Quantity"] <- "Conc"
     
     #make sure cols are numeric
     numCols <- c("Area",
                  "AreaSIL",
-                 "Response",
+                 # "Response",
                  "Conc",
                  "Expected Quantity")
     
     df[numCols] <- lapply(df[numCols], as.numeric)
     
     #change NA to 0
-    cols <- c("Area", "AreaSIL", "Response", "Conc")
+    cols <- c("Area", 
+              "AreaSIL", 
+              # "Response", 
+              "Conc")
     
     df[cols] <- lapply(df[cols], function(x) {
       x[is.na(x)] <- 0
@@ -71,11 +77,19 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     # Extract numeric part from plateID (removes "COVp")
     df$plateID_numeric <- as.numeric(sub(".*?(\\d+)$", "\\1", df$plateID))
     
+    
     #if -rerun instead of _rerun
     if (any(grepl("-rerun", df$AnalysisName, ignore.case = TRUE))) {
       df$AnalysisName <- gsub(pattern = "-rerun", replacement = "_rerun", x = df$AnalysisName,
-                                  ignore.case = FALSE)
+                              ignore.case = FALSE)
     }
+    
+    # #remove rerun
+    # if (any(grepl("-rerun", df$AnalysisName, ignore.case = TRUE))) {
+    #   result$AnalysisName <- gsub(pattern = "-rerun[1-6]", replacement = "", x = result$AnalysisName,
+    #                               ignore.case = FALSE)
+    # }
+    # 
     
     df$plateExperimentID <- sapply(strsplit(df$AnalysisName, "_"), function(parts) {
       idx <- length(parts)
@@ -102,7 +116,7 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     
     if(length(idx) > 0){
       for (id in idx) {
-      df[id, "plateExperimentID"] <- max(df[which(df$plateExperimentID < 200), "plateExperimentID"]) + 1
+        df[id, "plateExperimentID"] <- max(df[which(df$plateExperimentID < 200), "plateExperimentID"]) + 1
       }
     }
     
@@ -148,7 +162,7 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
     }
     
     #pass/fail information
-
+    
     df$PassFail <- NA
     for(plate in unique(df$plateID)){
       df[which(df$plateID == plate), "PassFail"] <- QCLTRData[[plate]][which(QCLTRData[[plate]]$AnalyteName == unique(df$AnalyteName)), "PassFail"]
@@ -177,7 +191,10 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       note <- "Plates in order manually provided"
     }
     #transform to long
-    y_columns <- c("Area", "AreaSIL", "Response", "Conc")
+    y_columns <- c("Area", 
+                   "AreaSIL", 
+                   # "Response", 
+                   "Conc")
     df_long <- melt(df, id.vars = c("plateExperimentID", "sampleType", "plateID", "PassFail"), measure.vars = y_columns)
     df_long$fill_color <- ifelse(df_long$PassFail == "CAUTION", "red", NA)
     
@@ -261,7 +278,7 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
       facet_wrap(~variable, 
                  ncol = 1, 
                  strip.position = "right",
-                 scales = "free_y") +
+                 scale = "free_y") + ## Added scale = "free_y" to allow different y-axis scales for each variable
       geom_boxplot() +
       theme_bw() +
       theme(axis.line = element_line(color='black'),
@@ -270,11 +287,6 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
             panel.grid.minor = element_blank(),
             panel.border = element_blank(),
             axis.ticks.x=element_blank(), 
-            axis.text.x = element_text(
-              angle = 45,
-              vjust = 1,
-              hjust = 1
-            ),
             panel.spacing.y = unit(0, "lines")) +
       xlab("") +
       ylab(paste0("")) +
@@ -303,4 +315,3 @@ plotQC <- function(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list()){
   
   return(plots)
 }
-

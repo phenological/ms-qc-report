@@ -4,7 +4,7 @@
 \alias{plotQC}
 \title{plotQC}
 \usage{
-plotQC(dae = NULL, scale = TRUE, plateOrder = NULL, optns = list())
+plotQC(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
 }
 \arguments{
 \item{dae}{\itemize{

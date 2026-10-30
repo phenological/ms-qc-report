@@ -10,35 +10,43 @@
 #' @import ms.parser
 summaryData <- function(dae){
   QCLTR <- list()
-
-    for(i in  1:length(dae@obsDescr)){
-      df <- dae@obsDescr[[i]]
-      if(any(grepl("\\[IS\\]", df$AnalyteName))) next
-      
-      if(dae@method == "SCFA"){
-        idx<- which(df$sampleType == "qc" | df$sampleType == "pqc")
-      } else{idx<- which(df$sampleType == "qc" | df$sampleType == "ltr")}
-      
-      cols <- c("AnalyteName", 
-                "sampleID", 
-                "Quantity", 
-                "Accuracy/Recovery[%]", 
-                "R2", 
-                "plateID", 
-                "sampleType")
-      QCLTR[[i]] <- df[idx, cols]
-      
-    }
-
+  
+  for(i in  1:length(dae@obsDescr)){
+    df <- dae@obsDescr[[i]]
+    df$AnalyteName <- sapply(strsplit(df$AnalyteName, "-"), function(x) x[1])
+    
+    # #remove IS
+    # if(any(grepl("\\[IS\\]", df$AnalyteName))) next
+    if(!any(df$AnalyteName %in% BA_names)) next
+    
+    if(dae@method == "SCFA"){
+      idx<- which(df$sampleType == "qc" | df$sampleType == "pqc")
+    } else{idx<- which(df$sampleType == "qc" | df$sampleType == "ltr")}
+    
+    cols <- c("AnalyteName", 
+              "sampleID", 
+              "Quantity", 
+              # "relative Area",
+              "Accuracy/Recovery[%]", 
+              "R2", 
+              "plateID", 
+              "sampleType")
+    QCLTR[[i]] <- df[idx, cols]
+    
+  }
+  
   
   all <- do.call(rbind, QCLTR)
   #make sure cols are numeric
-  numCols <- c("Quantity", "Accuracy/Recovery[%]", "R2")
+  numCols <- c("Quantity",
+               # "relative Area",
+               "Accuracy/Recovery[%]", "R2")
   
   all[numCols] <- lapply(all[numCols], as.numeric)
   
   # Replace NA with 0 in the specified numeric columns
   all$`Accuracy/Recovery[%]`[is.na(all$`Accuracy/Recovery[%]`)] <- 0
+  # all$`relative Area`[is.na(all$`relative Area`)] <- 0
   QCLTRData <- list()
   QCLTRTables <- list()
   
@@ -52,6 +60,7 @@ summaryData <- function(dae){
                             totalQCInjectionPass = character(length(unique(plate_data$AnalyteName))),
                             totalQCPassPerc = numeric(length(unique(plate_data$AnalyteName))),
                             LTR_RSD = numeric(length(unique(plate_data$AnalyteName))),
+                            # response_RSD = numeric(length(unique(plate_data$AnalyteName))),
                             R2 = numeric(length(unique(plate_data$AnalyteName))),
                             PassFail = numeric(length(unique(plate_data$AnalyteName))),
                             stringsAsFactors = FALSE)
@@ -86,7 +95,7 @@ summaryData <- function(dae){
       } else{ltr_data <- analyte_data[analyte_data$sampleType == "ltr", ]}
       
       if (nrow(ltr_data) > 1) {
-        rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
+        rsd <- (sd(ltr_data$Quantity,na.rm = T) / mean(ltr_data$Quantity,na.rm = T)) * 100
         if(rsd == "NaN" | is.na(rsd)){
           rsd <- NA
         }
@@ -94,6 +103,7 @@ summaryData <- function(dae){
       } else {
         result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- NA  # Not enough data for RSD calculation
       }
+      
       
       result_df$PassFail <- ifelse(
         is.na(result_df$R2) | is.na(result_df$totalQCPassPerc) | is.na(result_df$LTR_RSD),  # If any value is NA
@@ -107,7 +117,7 @@ summaryData <- function(dae){
           "PASS", "CAUTION"                                        # At least 3 of the conditions must be TRUE
         )
       )
-    
+      
     }
     
     # Store the result data frame for the current PlateID in the list
@@ -119,6 +129,7 @@ summaryData <- function(dae){
   #LTR RSD across all plates
   result_df <- data.frame(AnalyteName = unique(all$AnalyteName),
                           LTR_RSD = numeric(length(unique(all$AnalyteName))),
+                          # response_RSD = numeric(length(unique(all$AnalyteName))),
                           stringsAsFactors = FALSE)
   
   for (analyte in unique(all$AnalyteName)) {
@@ -126,9 +137,10 @@ summaryData <- function(dae){
     if(dae@method == "SCFA"){
       ltr_data <- all[all$AnalyteName == analyte & all$sampleType == "pqc", ]
     }else{ ltr_data <- all[all$AnalyteName == analyte & all$sampleType == "ltr", ]}
-   
+    
+    ## LTR RSD
     if (nrow(ltr_data) > 1) {
-      rsd <- (sd(ltr_data$Quantity) / mean(ltr_data$Quantity)) * 100
+      rsd <- (sd(ltr_data$Quantity,na.rm = T) / mean(ltr_data$Quantity,na.rm = T)) * 100
       if(rsd == "NaN" |is.na(rsd)){
         rsd <- NA
       }
@@ -136,6 +148,7 @@ summaryData <- function(dae){
     } else {
       result_df[result_df$AnalyteName == analyte, "LTR_RSD"] <- NA  # Not enough data for RSD calculation
     }
+    
     
   }
   QCLTRData[["allPlates"]] <- result_df

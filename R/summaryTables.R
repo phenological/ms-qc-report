@@ -19,7 +19,7 @@
 #make NA for qc related stuff 0, RSD of Nan can be NA and flag a caution
 
 summaryTables <- function(dae = NULL, plateOrder = NULL){
-
+  
   QCLTRData <- summaryData(dae = dae)
   
   ######Plate Order#######
@@ -45,7 +45,7 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
   QCLTRData <- QCLTRData[ordered_plate_names]
   
   QCLTRTables <- list()
-    #########table formatting#############
+  #########table formatting#############
   for(plate in ordered_plate_names){
     
     result_df <- QCLTRData[[plate]]
@@ -53,7 +53,9 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
     analyte_names <- unique(result_df$AnalyteName)
     
     # Create an empty data frame to hold the rotated data
-    rotated_df <- data.frame(Metric = c("totalQCInjectionPass", "totalQCPassPerc", "LTR_RSD", "R2", "PassFail"))
+    rotated_df <- data.frame(Metric = c("totalQCInjectionPass", "totalQCPassPerc", "LTR_RSD",
+                                        # "response_RSD", 
+                                        "R2", "PassFail"))
     
     # Loop through each analyte and extract values for each metric
     for (analyte in analyte_names) {
@@ -64,6 +66,7 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
       metric_values <- c(analyte_data$totalQCInjectionPass,
                          analyte_data$totalQCPassPerc,
                          analyte_data$LTR_RSD,
+                         # analyte_data$response_RSD,
                          analyte_data$R2,
                          analyte_data$PassFail)
       
@@ -72,7 +75,7 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
     }
     
     if(plate == "allPlates"){
-      rotated_df <- rotated_df[which(rotated_df$Metric == "LTR_RSD"),]
+      rotated_df <- rotated_df[which(rotated_df$Metric %in%c( "LTR_RSD")),]
     }
     
     if(dae@method == "SCFA"){
@@ -94,7 +97,7 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
       # Loop through each analyte column to apply color coding for PassFail
       for (analyte in colnames(rotated_df)[-1]) {  # Skip the Metric column
         # Get the PassFail value for the current analyte
-        pass_fail_value <- rotated_df[rotated_df$Metric == "PassFail", analyte]
+        pass_fail_value <- rotated_df[rotated_df$Metric =="PassFail", analyte]
         
         # Set color based on the PassFail value
         if (pass_fail_value == "CAUTION" | is.na(pass_fail_value)) {
@@ -114,19 +117,87 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
             columns = !!analyte
           )
         )
+        ######### 
+        pass_fail_value <- as.numeric(rotated_df[rotated_df$Metric =="LTR_RSD", analyte])
+        
+        # Set color based on the PassFail value
+        if (pass_fail_value >= 20 | is.na(pass_fail_value)) {
+          color <- "red"
+        } else if (pass_fail_value < 20) {
+          color <- "green"
+        } else {
+          color <- "white"  # Default color if it's neither
+        }
+        
+        # Apply the color to the PassFail row
+        table_output <- tab_style(
+          table_output,
+          style = cell_fill(color = color),
+          locations = cells_body(
+            rows = Metric == "LTR_RSD",
+            columns = !!analyte
+          )
+        )
+        
+        #########  TOTAL QC PASS PERC
+        pass_fail_value <- as.numeric(rotated_df[rotated_df$Metric =="totalQCPassPerc", analyte])
+        
+        # Set color based on the PassFail value
+        if (pass_fail_value < 66 | is.na(pass_fail_value)) {
+          color <- "red"
+        } else if (pass_fail_value >= 66) {
+          color <- "green"
+        } else {
+          color <- "white"  # Default color if it's neither
+        }
+        
+        # Apply the color to the PassFail row
+        table_output <- tab_style(
+          table_output,
+          style = cell_fill(color = color),
+          locations = cells_body(
+            rows = Metric == "totalQCPassPerc",
+            columns = !!analyte
+          )
+        )
+        
+        #########  R2
+        pass_fail_value <- as.numeric(rotated_df[rotated_df$Metric =="R2", analyte])
+        
+        # Set color based on the PassFail value
+        if (pass_fail_value < 0.99 | is.na(pass_fail_value)) {
+          color <- "red"
+        } else if (pass_fail_value >= 0.99) {
+          color <- "green"
+        } else {
+          color <- "white"  # Default color if it's neither
+        }
+        
+        # Apply the color to the PassFail row
+        table_output <- tab_style(
+          table_output,
+          style = cell_fill(color = color),
+          locations = cells_body(
+            rows = Metric == "R2",
+            columns = !!analyte
+          )
+        )
+        
+        
+        
+        
       }
     }
-
-    QCLTRTables[[plate]] <- table_output
-    }
     
+    QCLTRTables[[plate]] <- table_output
+  }
+  
   
   QCLTRResults <- list(data = QCLTRData,
                        tables = QCLTRTables)
   
- return(QCLTRResults)
-
-  }
-
+  return(QCLTRResults)
+  
+}
 
 
