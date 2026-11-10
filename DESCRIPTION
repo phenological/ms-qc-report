@@ -1,6 +1,6 @@
 Package: ms.qc.report
 Title: Generates graphics for MS QC reports
-Version: 0.0.1
+Version: 0.1.0
 Authors@R: 
     person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
            comment = c(ORCID = "YOUR-ORCID-ID"))
@@ -12,19 +12,23 @@ RoxygenNote: 7.3.3
 Imports: 
     fusion,
     ggplot2,
-    ggpubr,
     grid,
     gt,
     htmltools,
+    knitr,
     methods,
     ms.parser,
     patchwork,
     reshape2,
     rmarkdown,
-    roxygen2,
     stats,
+    tools,
     utils
+Remotes:
+    phenological/fusion,
+    phenological/ms-parser
 Suggests:
+    devtools,
+    pkgload,
     testthat (>= 3.0.0)
-LazyData: true
 Config/testthat/edition: 3
