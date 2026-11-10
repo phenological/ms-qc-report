@@ -2,47 +2,30 @@
 #'
 #' Displays status (pass or caution) for each analyte in each plate in table format.
 #' @param dae - dae of targeted Mass Spectrometry.
-#' @param plateOrder Character vector of order plates should appear in. For 
-#' example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in 
-#' an order from Acquisition date (if present for all plates), or name order.
-#' @return list of tables and matching data with a slot for each plate. Criteria 
-#' for PASS, must meet all 3 criteria of R2 is ≥ 0.99, LTR RSD is ≤ 20 or "N/A" 
-#' (uses ltr sampleType Quantity), totalQCInjectionPass fraction of qc samples 
-#' with 80=< Accuracy/Recovery`[%]` =< 120 totalQCPass(%), percent of qc injections 
-#' that have 80=< Accuracy/Recovery`[%]` =< 120. Pass needs to be ≥ 66% (uses qc sampleType)
+#' @param plateOrder Character vector of order plates should appear in. For
+#' example c("COVp005", "COVp002", "COVp001"); plates not listed are added at
+#' the end. The default is NULL resulting in an order from Acquisition date (if
+#' present for all plates), or name order. plotQC() uses the same order.
+#' @return list with `data` and `tables` (a slot for each plate, then
+#' "allPlates") and `note` (how plates were ordered). PASS needs all 3 criteria
+#' in QC_CRITERIA (R/Constants.R): R2 >= 0.99; >= 66% of qc injections with
+#' 80 <= `Accuracy/Recovery[%]` <= 120; LTR RSD <= 20 (PQC RSD for SCFA).
+#' Anything missing gives CAUTION. Cells are green when they meet their
+#' criterion and red otherwise.
 #'
 #' @export
 #' @import gt
-#' @importFrom reshape2 melt
-
-
-#make NA for qc related stuff 0, RSD of Nan can be NA and flag a caution
-
 summaryTables <- function(dae = NULL, plateOrder = NULL){
-  
   QCLTRData <- summaryData(dae = dae)
-  
+
   ######Plate Order#######
-  df <- dae@obsDescr[[1]]
-  if("Acquisition Date" %in% names(df) && all(!is.na(df$`Acquisition Date`)) & is.null(plateOrder)){
-    #factor plates
-    plate_min_times <- aggregate(`Acquisition Date` ~ plateID, data = df, min)
-    
-    # Order plateIDs by their minimum Acquisition Time
-    ordered_plateIDs <- plate_min_times$plateID[order(plate_min_times$`Acquisition Date`)]
-    plateOrder <- ordered_plateIDs
-  }
-  
-  if((any(is.na(df$`Acquisition Date`)) | !("Acquisition Date" %in% names(df))) & is.null(plateOrder)){
-    plateOrder <- names(QCLTRData)
-  }
-  
-  if(!is.null(plateOrder)){
-  }
-  
-  # Order the plate names in QCLTRData based on plateOrder
-  ordered_plate_names <- intersect(plateOrder, names(QCLTRData))
+  # same order as plotQC(); "allPlates" always last
+  ord <- plateOrderInfo(dae, plateOrder)
+  ordered_plate_names <- c(intersect(ord$order, names(QCLTRData)), "allPlates")
   QCLTRData <- QCLTRData[ordered_plate_names]
+
+  # name of the RSD row: PQC_RSD for SCFA, LTR_RSD otherwise
+  rsd_row <- if (dae@method == "SCFA") "PQC_RSD" else "LTR_RSD"
   
   QCLTRTables <- list()
   #########table formatting#############
@@ -78,9 +61,8 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
       rotated_df <- rotated_df[which(rotated_df$Metric %in%c( "LTR_RSD")),]
     }
     
-    if(dae@method == "SCFA"){
-      rotated_df$Metric[rotated_df$Metric == "LTR_RSD"] <- "PQC_RSD"
-    }
+    # label the RSD row (PQC_RSD for SCFA); the colouring below uses rsd_row
+    rotated_df$Metric[rotated_df$Metric == "LTR_RSD"] <- rsd_row
     
     # Set column names for the rotated data frame
     colnames(rotated_df) <- c("Metric", analyte_names)
@@ -100,7 +82,7 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
         pass_fail_value <- rotated_df[rotated_df$Metric =="PassFail", analyte]
         
         # Set color based on the PassFail value
-        if (pass_fail_value == "CAUTION" | is.na(pass_fail_value)) {
+        if (is.na(pass_fail_value) || pass_fail_value == "CAUTION") {
           color <- "red"
         } else if (pass_fail_value == "PASS") {
           color <- "green"
@@ -118,12 +100,12 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
           )
         )
         ######### 
-        pass_fail_value <- as.numeric(rotated_df[rotated_df$Metric =="LTR_RSD", analyte])
+        pass_fail_value <- as.numeric(rotated_df[rotated_df$Metric == rsd_row, analyte])
         
-        # Set color based on the PassFail value
-        if (pass_fail_value >= 20 | is.na(pass_fail_value)) {
+        # Set color: same limit as PASS/CAUTION (RSD <= RSD_MAX passes)
+        if (is.na(pass_fail_value) || pass_fail_value > QC_CRITERIA$RSD_MAX) {
           color <- "red"
-        } else if (pass_fail_value < 20) {
+        } else if (pass_fail_value <= QC_CRITERIA$RSD_MAX) {
           color <- "green"
         } else {
           color <- "white"  # Default color if it's neither
@@ -134,7 +116,7 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
           table_output,
           style = cell_fill(color = color),
           locations = cells_body(
-            rows = Metric == "LTR_RSD",
+            rows = Metric == rsd_row,
             columns = !!analyte
           )
         )
@@ -143,9 +125,9 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
         pass_fail_value <- as.numeric(rotated_df[rotated_df$Metric =="totalQCPassPerc", analyte])
         
         # Set color based on the PassFail value
-        if (pass_fail_value < 66 | is.na(pass_fail_value)) {
+        if (is.na(pass_fail_value) || pass_fail_value < QC_CRITERIA$QC_PASS_MIN) {
           color <- "red"
-        } else if (pass_fail_value >= 66) {
+        } else if (pass_fail_value >= QC_CRITERIA$QC_PASS_MIN) {
           color <- "green"
         } else {
           color <- "white"  # Default color if it's neither
@@ -165,9 +147,9 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
         pass_fail_value <- as.numeric(rotated_df[rotated_df$Metric =="R2", analyte])
         
         # Set color based on the PassFail value
-        if (pass_fail_value < 0.99 | is.na(pass_fail_value)) {
+        if (is.na(pass_fail_value) || pass_fail_value < QC_CRITERIA$R2_MIN) {
           color <- "red"
-        } else if (pass_fail_value >= 0.99) {
+        } else if (pass_fail_value >= QC_CRITERIA$R2_MIN) {
           color <- "green"
         } else {
           color <- "white"  # Default color if it's neither
@@ -194,7 +176,8 @@ summaryTables <- function(dae = NULL, plateOrder = NULL){
   
   
   QCLTRResults <- list(data = QCLTRData,
-                       tables = QCLTRTables)
+                       tables = QCLTRTables,
+                       note = ord$note)
   
   return(QCLTRResults)
   

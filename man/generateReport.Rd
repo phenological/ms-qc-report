@@ -5,37 +5,121 @@
 \title{Generate an HTML Report}
 \usage{
 generateReport(
-  folder = NULL,
+  data = NULL,
   fileType = NULL,
   assay = NULL,
   plateOrder = NULL,
   title = "QC Report",
-  output_file = "report.html",
+  output_file = "qcreport.html",
+  reportID = NULL,
+  revision = 0,
+  supersedes = NULL,
+  client = NULL,
+  contact = NULL,
+  sampleReceivedDate = NULL,
+  project = NULL,
+  runID = NULL,
+  methodID = NULL,
+  instrument = NULL,
+  ms_specialist_1 = NULL,
+  ms_specialist_2 = NULL,
+  ms_lead = NULL,
+  notes = NULL,
+  materials = NULL,
+  decisions = NULL,
+  uncertainty = NULL,
   scale = TRUE
 )
 }
 \arguments{
-\item{folder}{Either a character for the file path or a dataElement to be included in the report.}
+\item{data}{The data: a folder of exported files, a series of files
+(character vector, or one comma-separated string), a wildcard such as
+"exports/COVp*.xml", a dataElement saved as .rds, or a dataElement.
+Relative paths are taken from the working directory.}
 
-\item{fileType}{Character "xml", "tsv" or "txt" if supplying file path to the folder argument.}
+\item{fileType}{Character "xml", "tsv" or "txt". Optional: taken from the
+file extensions if not given.}
 
 \item{assay}{Character of "ddhN", "AA", "TRY", "BA" or "SCFA".}
 
 \item{plateOrder}{Character vector of order plates should appear in. For
-example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in
-an order from Acquisition date (if present for all plates), or name order.}
+example c("COVp005", "COVp002", "COVp001"); plates not listed are added at
+the end. The default is NULL resulting in an order from Acquisition date
+(if present for all plates), or name order.}
 
-\item{title}{The title of the report.}
+\item{title}{Title of the report.}
 
-\item{output_file}{The name of the output HTML file.}
+\item{output_file}{Path of the HTML file. A bare file name is saved in the
+working directory; ".html" is added if missing.}
 
-\item{scale}{\itemize{
-\item Boolean. TRUE if the data should be log10(value + 1)
-}}
+\item{reportID}{Unique ID, e.g. "covid19_biogune_COVr01_MS_AA_QC_20261109".
+If NULL, one is made from project, runID, assay and today's date.}
+
+\item{revision}{0 = original; 1, 2, ... for a reissued report.}
+
+\item{supersedes}{ID of the report this one replaces (required if
+revision > 0).}
+
+\item{client}{Client contact name.}
+
+\item{contact}{Client contact details (e.g. email).}
+
+\item{sampleReceivedDate}{Date the samples were received ("YYYY-MM-DD").}
+
+\item{project}{Project, e.g. "IRMA".}
+
+\item{runID}{Run ID, e.g. "COVr01".}
+
+\item{methodID}{Method / SOP reference and version, e.g. "v2".}
+
+\item{instrument}{Instrument name or serial number, e.g. "PAI03".}
+
+\item{ms_specialist_1}{Initials of the person who processed the data and
+prepared the report.}
+
+\item{ms_specialist_2}{Initials of the person who independently reviewed the
+QC results.}
+
+\item{ms_lead}{Initials of the person who authorised the report for release.}
+
+\item{notes}{Deviations from the method, reruns, excluded samples or other
+remarks. Shown as "None." if empty.}
+
+\item{materials}{Lots / IDs of reference materials, as a named vector, e.g.
+c(Calibrants = "CAL-2411", "QC material" = "QC-2410"), or a data frame.}
+
+\item{decisions}{Decisions on CAUTION results: a data frame with columns
+plate, analyte, disposition ("Accept", "Re-run" or "Reject") and
+justification (required for "Accept").}
+
+\item{uncertainty}{Working range / measurement uncertainty table. NULL (the
+default) uses the package table for the assay
+(inst/uncertainty/\if{html}{\out{<assay>}}.csv); or give the path to a CSV, or a data frame,
+with columns analyte, LLOQ, ULOQ, units, U_percent.}
+
+\item{scale}{Boolean. TRUE (default) if the data should be log10(value + 1).}
 }
 \value{
-The path to the generated HTML report.
+The path to the generated HTML report, invisibly.
 }
 \description{
-This function generates an HTML report using an R Markdown template.
+This function generates an HTML QC report using the package's R Markdown
+template (inst/rmarkdown/templates/reportTemplate.Rmd), with the details
+needed for an ISO/IEC 17025 record. The report shows DRAFT until it has a
+report ID, all three sign-off initials and a decision (in \code{decisions}) for
+every CAUTION result; it then shows AUTHORISED.
+}
+\examples{
+\dontrun{
+generateReport(
+  data = "~/Downloads/BA_xml/", assay = "BA",
+  title = "IRMA SRVr015 MS BA", output_file = "IRMA_SRVr015_MS_BA.html",
+  client = "Client name", contact = "client@example.com",
+  sampleReceivedDate = "2026-10-28", project = "IRMA", runID = "SRVr015",
+  methodID = "v2", instrument = "PAI03",
+  ms_specialist_1 = "YW", ms_specialist_2 = "MR", ms_lead = "RK",
+  decisions = data.frame(plate = "SRVp001", analyte = "GCA",
+                         disposition = "Re-run", justification = NA)
+)
+}
 }

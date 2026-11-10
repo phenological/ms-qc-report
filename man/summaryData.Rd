@@ -10,9 +10,10 @@ summaryData(dae)
 \item{dae}{DataElement}
 }
 \value{
-list of data per plate
+list of data per plate, plus "allPlates" (LTR RSD across all plates)
 }
 \description{
 Calculates the data for summaryTables and PassFail used to propagate colouring
-in plotQC.
+in plotQC. Internal standards are excluded for every assay; for BA only the
+bile acids in BA_names are kept. Criteria are in QC_CRITERIA (R/Constants.R).
 }

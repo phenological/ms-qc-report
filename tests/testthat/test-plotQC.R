@@ -2,7 +2,7 @@
 test_that("date order works with TSVs", {
 
 #make Acquisition dates for NAs
-  testTsv <- fusion:::parseMS(folder = "~/git/phenological/ms-qc-report/inst/extdata/", assay = "AA", fileType = "tsv")
+  testTsv <- fusion:::parseMS(folder = system.file("extdata", package = "ms.qc.report"), assay = "AA", fileType = "tsv")
   expect_true(object = is(testTsv)[1] == "dataElement")
 # ###name order#####
 plotsAutoName <-
@@ -10,7 +10,8 @@ plotsAutoName <-
          scale = TRUE,
          optns = list())
  
-expect_true(object = is.null(levels(plotsAutoName[["1-methylhistidine"]][[1]][["data"]]$plateID)))
+# PLASMA8B has no Acquisition Dates, so plates are in name order
+expect_equal(levels(plotsAutoName[["1-methylhistidine"]][[1]][["data"]]$plateID), c("JUVp003", "PLASMA8B"))
 
 #fill the NAs
 for (i in 1:length(testTsv@obsDescr)) {
@@ -40,8 +41,9 @@ plotsAutoDate <-
          plateOrder = NULL,
          optns = list())
 
-#homocysteine has some NAs so should work but orders plates by names
-expect_true(object = is.null( levels(plotsAutoDate[["Homocysteine"]][[1]][["data"]][["plateID"]])))
+#every analyte now uses the same plate order as the tables, including homocysteine
+expect_equal(levels(plotsAutoDate[["Homocysteine"]][[1]][["data"]][["plateID"]]),
+             levels(plotsAutoDate[["3-methylhistidine"]][[1]][["data"]][["plateID"]]))
 
 #for those with no NAs in dates, JUV plate should be first (was run first)
 expect_true(levels(plotsAutoDate[["3-methylhistidine"]][[1]][["data"]][["plateID"]])[1] == "JUVp003")

@@ -1,7 +1,7 @@
 
 test_that("order observed for tables", {
   #make Acquisition dates for NAs
-  testTsv <- fusion:::parseMS(folder = "~/git/phenological/ms-qc-report/inst/extdata/", assay = "AA", fileType = "tsv")
+  testTsv <- fusion:::parseMS(folder = system.file("extdata", package = "ms.qc.report"), assay = "AA", fileType = "tsv")
 
   AutoName <- summaryTables(dae = testTsv)
   #same order

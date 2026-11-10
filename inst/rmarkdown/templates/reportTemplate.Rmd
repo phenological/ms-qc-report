@@ -1,43 +1,453 @@
 ---
 title: "`r params$title`"
-# author: "Lucy Grigoroff"
-date: "`r format(Sys.Date(), '%Y-%m-%d')`" 
-output: html_document
-params: 
-  title: "QC Report"
-  folder: NULL
-  assay: NULL
-  fileType: NULL
-  plateOrder: NULL
-  scale: TRUE
+subtitle: "`r paste(Filter(nzchar, c(params$client, params$project, params$runID, params$assay)), collapse = ' | ')`"
+date: "`r format(Sys.Date(), '%Y-%m-%d')` · Report ID `r params$reportID` · revision `r params$revision`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 2
+    self_contained: true
+params:
+  title: ""
+  # ---- Report details ---------------------------------------------------
+  reportID: ""          # unique ID, e.g. "covid19_biogune_COVr01_MS_AA_QC_20261109"
+  revision: 0                 # 0 = original; 1, 2, ... for a reissued report
+  supersedes: ""              # ID of the report this one replaces (if revision > 0)
+  client: ""                  # Client contact name
+  contact: ""                 # Client contact details (e.g., email)
+  sampleReceivedDate: ""      # Date the samples were received (YYYY-MM-DD)
+  project: ""
+  runID: ""            # e.g. "COVr01"
+  assay: ""                 # SCFA, AA, BA, TRY or ddhN
+  methodID: ""              # method / SOP reference and version
+  instrument: ""        # instrument name or serial number
+  # ---- Data ---------------------------------------------------------------
+  data: "~/OneDrive - Murdoch University/Data/covid19/cambridgeFollowUp/rawData/MS/AA/" # exported files, a folder, or an .rds file -- see the note below
+  fileType: "tsv"             # "xml", "tsv" or "txt"; blank = from the file extensions
+  plateOrder: "AA"              # e.g. "COVp02, COVp01"; blank = automatic
+  scale: TRUE                 # TRUE = plot log10(value + 1)
+  # ---- Sign-off (initials) ------------------------------------------------
+  ms_specialist_1: ""       # data processed and report prepared
+  ms_specialist_2: ""       # QC results independently reviewed
+  ms_lead: ""               # report authorised for release
+  # ---- Notes ----------------------------------------------------------------
+  notes: ""                 # deviations / remarks; for several lines use  notes: |
+  # ---- Working range and measurement uncertainty ------------------------------
+  uncertainty: ""           # blank = the package table for the assay (inst/uncertainty/<assay>.csv),
+                            # or the path to your own CSV for this report
+  # ---- Set by generateReport() (in this notebook, use the edit-here chunk) ----
+  materials: !r NULL
+  decisions: !r NULL
 ---
+
+<!--
+MS QC REPORT NOTEBOOK (ISO/IEC 17025): one copy per run.
+
+Two ways to use it:
+  - call ms.qc.report::generateReport(), which fills in the YAML values from
+    its arguments, or
+  - copy this file, fill it in and knit it. Knitted from inside the
+    ms.qc.report source folder it uses devtools::load_all(); anywhere else it
+    uses the installed package.
+
+1. Copy this file for the run, e.g. covid19_biogune_PLA_COVr01_MS_AA_QC.Rmd.
+2. Point `data:` in the YAML header at the run's data. Any of:
+     - a folder of exports:   data: "~/Downloads/BA_xml/"
+     - a series of files, comma-separated, all the same type:
+         data: "~/exports/COVp01.xml, ~/exports/COVp02.xml"
+     - a wildcard:            data: "~/exports/COVp*.xml"
+     - a saved dataElement:   data: "~/run/covid19_biogune_PLA_COVr01_MS_AA.rds"
+   Use / in paths, not \.
+3. Fill in the YAML header above (or Knit > Knit with Parameters...).
+4. Fill in the "edit-here" chunk below: laboratory, reference material lots,
+   CAUTION decisions.
+5. Write any deviations or remarks in `notes:` in the YAML header.
+   The working range / uncertainty table comes from inst/uncertainty/<assay>.csv
+   in the package (edit it in Excel), or from your own CSV via `uncertainty:`.
+6. Knit. The report shows DRAFT until it has a report ID, all three sign-off
+   initials and a decision for every CAUTION result; then AUTHORISED.
+-->
+
+```{r edit-here, include=FALSE}
+# ============================================================================
+# EDIT HERE: laboratory, reference materials and CAUTION decisions.
+# ============================================================================
+
+lab <- list(
+  name     = "Australian National Phenome Centre (ANPC)",
+  address  = "5 Robin Warren Dr, Murdoch WA 6150",
+  location = "Analysis performed at the ANPC laboratory"
+)
+
+# Lots / IDs of calibrants, QC material and internal standards used in this run
+materials <- data.frame(
+  Material   = c("Calibrants", "QC material", "Internal standard mix"),
+  `Lot / ID` = c("", "", ""),
+  check.names = FALSE
+)
+
+# One row per CAUTION result once reviewed (see the CAUTION review section,
+# which lists every CAUTION result and the criteria it failed).
+#   disposition:   "Accept", "Re-run" or "Reject"
+#   justification: required for "Accept"
+decisions <- data.frame(
+  plate         = character(0),
+  analyte       = character(0),
+  disposition   = character(0),
+  justification = character(0)
+)
+# Example:
+# decisions <- data.frame(
+#   plate         = c("SRVp001", "SRVp002"),
+#   analyte       = c("GCA", "TLCA"),
+#   disposition   = c("Accept", "Re-run"),
+#   justification = c("Low calibrant excluded per SOP; R2 0.996 after exclusion", NA)
+# )
+
+# Values passed by generateReport() take the place of the tables above
+if (!is.null(params$materials)) materials <- params$materials
+if (!is.null(params$decisions)) decisions <- params$decisions
+```
 
 ```{r setup, include=FALSE}
 library(htmltools)
 library(fusion)
-knitr::opts_chunk$set(echo = TRUE)
+# generateReport() has already loaded ms.qc.report. Knitted by hand from the
+# source folder, load it from source; anywhere else, use the installed package.
+if (!isNamespaceLoaded("ms.qc.report")) {
+  in_source <- !is.null(tryCatch(pkgload::pkg_path("."), error = function(e) NULL))
+  if (in_source) devtools::load_all(quiet = TRUE) else library(ms.qc.report)
+}
+library(ms.qc.report)
 
-if(is(params$folder)[1] == "character"){
-  dae <- parseMS(folder = params$folder, fileType = params$fileType, assay = params$assay)
-}else {
-  dae <- params$folder
+# empty / NULL-safe text from a parameter
+txt <- function(x) if (is.null(x) || !length(x) || all(is.na(x))) "" else paste(x, collapse = ", ")
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+options(knitr.kable.NA = "")
+
+# ---- Load the data ------------------------------------------------------------
+input_files <- character(0)
+
+if (is(params$data)[1] == "character") {
+
+  paths <- trimws(unlist(strsplit(params$data, ",", fixed = TRUE)))
+  paths <- path.expand(paths[nzchar(paths)])
+
+  if (length(paths) == 1 && grepl("\\.rds$", paths, ignore.case = TRUE)) {
+    # a saved dataElement
+    dae <- readRDS(paths)
+    input_files <- paths
+
+  } else {
+    # exported files: a folder, a series of files, or a wildcard
+    pattern <- if (nzchar(txt(params$fileType))) paste0("\\.", params$fileType, "$") else "\\.(xml|tsv|txt)$"
+    input_files <- unique(unlist(lapply(paths, function(p) {
+      if (dir.exists(p)) {
+        sort(list.files(p, pattern = pattern, full.names = TRUE, recursive = TRUE, ignore.case = TRUE))
+      } else if (grepl("[*?]", p)) {
+        sort(Sys.glob(p))
+      } else {
+        p
+      }
+    })))
+
+    if (length(input_files) == 0) {
+      stop("No matching files found in: ", paste(paths, collapse = ", "))
+    }
+    not_found <- input_files[!file.exists(input_files)]
+    if (length(not_found)) stop("File(s) not found: ", paste(not_found, collapse = ", "))
+
+    file_type <- unique(tolower(tools::file_ext(input_files)))
+    if (length(file_type) > 1) {
+      stop("All files must be the same type; found: ", paste(file_type, collapse = ", "))
+    }
+
+    # Read every file with the ms.parser reader for the assay (e.g. readBA),
+    # stack the rows, then build one dataElement -- what parseMS() does for a
+    # folder. Unlike rbind() on separate dataElements, this also works when
+    # plates don't all have the same analytes.
+    reader <- getExportedValue("ms.parser", paste0("read", params$assay))
+    long <- do.call(rbind, lapply(input_files, function(f) reader(file = f, optns = list())))
+    dae <- parseMS(folder = long, assay = params$assay)
+  }
+
+} else {
+
+  dae <- params$data
+
 }
 
+plate_order <- if (nzchar(txt(params$plateOrder))) trimws(strsplit(txt(params$plateOrder), ",")[[1]]) else NULL
+assay <- dae@method
 ```
 
-## QC Summary Tables 
-```{r pressure1, echo=FALSE}
+```{r qc-and-status, include=FALSE}
+# ---- QC results (from ms.qc.report) ------------------------------------------
+table_data <- summaryTables(dae = dae, plateOrder = plate_order)
+plate_data <- table_data$data[setdiff(names(table_data$data), "allPlates")]
+plates     <- names(plate_data)
+analytes   <- unique(unlist(lapply(plate_data, `[[`, "AnalyteName")))
 
+# Acceptance criteria: taken from the package when it defines them
+crit <- tryCatch(get("QC_CRITERIA", envir = asNamespace("ms.qc.report")),
+                 error = function(e) list(R2_MIN = 0.99, ACC_RANGE = c(80, 120),
+                                          QC_PASS_MIN = 66, RSD_MAX = 20))
+ref_type  <- if (identical(assay, "SCFA")) "pqc" else "ltr"
+rsd_label <- if (ref_type == "pqc") "PQC RSD" else "LTR RSD"
+
+# ---- CAUTION review: failed criteria + decisions --------------------------------
+failed_criteria <- function(r) {
+  out <- character(0)
+  r2 <- suppressWarnings(as.numeric(r$R2))
+  qcp <- suppressWarnings(as.numeric(r$totalQCPassPerc))
+  rsd <- suppressWarnings(as.numeric(r$LTR_RSD))
+  if (is.na(r2)) out <- c(out, "R2 not reported")
+  else if (r2 < crit$R2_MIN) out <- c(out, sprintf("R2 %.4f < %s", r2, crit$R2_MIN))
+  if (is.na(qcp)) out <- c(out, "no QC injections")
+  else if (qcp < crit$QC_PASS_MIN)
+    out <- c(out, sprintf("QC pass %s%% (%s) < %s%%", qcp, r$totalQCInjectionPass, crit$QC_PASS_MIN))
+  if (is.na(rsd)) out <- c(out, paste(rsd_label, "not calculable (< 2 values)"))
+  else if (rsd > crit$RSD_MAX) out <- c(out, sprintf("%s %.2f%% > %s%%", rsd_label, rsd, crit$RSD_MAX))
+  paste(out, collapse = "; ")
+}
+
+review <- do.call(rbind, lapply(plates, function(p) {
+  d <- plate_data[[p]]
+  d <- d[is.na(d$PassFail) | d$PassFail == "CAUTION", , drop = FALSE]
+  if (!nrow(d)) return(NULL)
+  data.frame(Plate = p, Analyte = d$AnalyteName,
+             `Failed criteria` = vapply(seq_len(nrow(d)), function(k) failed_criteria(d[k, ]), ""),
+             check.names = FALSE, stringsAsFactors = FALSE)
+}))
+if (is.null(review)) {
+  review <- data.frame(Plate = character(0), Analyte = character(0),
+                       `Failed criteria` = character(0), check.names = FALSE)
+}
+
+# Check the decisions and merge them in
+dec <- decisions
+names(dec) <- tolower(names(dec))
+dec_map <- c(accept = "Accept", accepted = "Accept", rerun = "Re-run",
+             reject = "Reject", rejected = "Reject")
+dec$disposition <- unname(dec_map[tolower(gsub("[^A-Za-z]", "", dec$disposition))])
+if (any(is.na(dec$disposition))) {
+  stop("In `decisions`, disposition must be \"Accept\", \"Re-run\" or \"Reject\".")
+}
+no_just <- dec$disposition == "Accept" &
+  (is.na(dec$justification) | !nzchar(trimws(dec$justification)))
+if (any(no_just)) {
+  stop("In `decisions`, a justification is required to accept: ",
+       paste(dec$plate[no_just], dec$analyte[no_just], collapse = ", "))
+}
+m <- match(paste(review$Plate, review$Analyte), paste(dec$plate, dec$analyte))
+review$Disposition   <- dec$disposition[m]
+review$Justification <- dec$justification[m]
+unmatched <- !paste(dec$plate, dec$analyte) %in% paste(review$Plate, review$Analyte)
+
+# ---- Working range and measurement uncertainty ---------------------------------
+# Default: the package table for the assay. A CSV path in `uncertainty:` (or a
+# data frame from generateReport()) replaces it for this report.
+unc_source <- params$uncertainty
+if (is.data.frame(unc_source)) {
+  unc <- unc_source
+  unc_from <- "table supplied for this report"
+} else {
+  unc_file <- if (nzchar(txt(unc_source))) path.expand(txt(unc_source)) else
+    system.file("uncertainty", paste0(assay, ".csv"), package = "ms.qc.report")
+  if (nzchar(unc_file) && !file.exists(unc_file)) stop("Uncertainty file not found: ", unc_file)
+  unc <- if (nzchar(unc_file)) utils::read.csv(unc_file, check.names = FALSE, fileEncoding = "UTF-8",
+                                               stringsAsFactors = FALSE) else NULL
+  unc_from <- if (nzchar(txt(unc_source))) basename(unc_file) else
+    if (nzchar(unc_file)) paste0("package table inst/uncertainty/", assay, ".csv") else ""
+}
+if (!is.null(unc)) {
+  unc$analyte <- trimws(unc$analyte)
+  unc_missing <- setdiff(analytes, unc$analyte)               # in the run, not in the table
+  unc <- unc[unc$analyte %in% analytes, , drop = FALSE]        # only analytes in this run
+  unc <- unc[order(match(unc$analyte, analytes)), , drop = FALSE]
+} else {
+  unc_missing <- analytes
+}
+unc_no_U <- is.null(unc) || !"U_percent" %in% names(unc) || all(is.na(unc$U_percent) | unc$U_percent == "")
+
+# ---- Sign-off ----------------------------------------------------------------------
+signoff <- data.frame(
+  Role = c("MS specialist 1", "MS specialist 2", "MS Lead"),
+  Responsibility = c("Data processed and report prepared",
+                     "QC results independently reviewed",
+                     "Report authorised for release"),
+  Initials = toupper(trimws(c(txt(params$ms_specialist_1), txt(params$ms_specialist_2), txt(params$ms_lead)))),
+  stringsAsFactors = FALSE
+)
+signed <- nzchar(signoff$Initials)
+repeated <- unique(signoff$Initials[signed][duplicated(signoff$Initials[signed])])
+
+# ---- Software provenance (ISO 17025 7.11) --------------------------------------------
+pkg_dir <- dirname(system.file("DESCRIPTION", package = "ms.qc.report"))
+git <- function(...) tryCatch(
+  suppressWarnings(system2("git", c("-C", shQuote(pkg_dir), ...), stdout = TRUE, stderr = FALSE)),
+  error = function(e) character(0))
+pkg_commit <- git("rev-parse", "--short", "HEAD")
+pkg_commit <- if (length(pkg_commit) == 1 && nzchar(pkg_commit)) pkg_commit else NA_character_
+pkg_dirty  <- !is.na(pkg_commit) && length(git("status", "--porcelain", "--untracked-files=no")) > 0
+
+# ---- Report status ----------------------------------------------------------------
+reasons <- c(
+  if (!nzchar(txt(params$reportID))) "No report ID",
+  if (params$revision > 0 && !nzchar(txt(params$supersedes))) "Revised report: `supersedes` is empty",
+  if (any(!signed)) paste("Sign-off missing:", paste(signoff$Role[!signed], collapse = ", ")),
+  if (any(is.na(review$Disposition)))
+    sprintf("%d CAUTION result(s) without a decision", sum(is.na(review$Disposition)))
+)
+status <- if (length(reasons)) "DRAFT" else "AUTHORISED"
+notes_banner <- c(
+  if (length(repeated)) sprintf("The same initials (%s) appear in more than one sign-off role.",
+                                paste(repeated, collapse = ", ")),
+  if (pkg_dirty) sprintf("ms.qc.report was run from source with uncommitted changes (commit %s).",
+                         pkg_commit),
+  if (any(unmatched)) paste("Decision(s) that match no CAUTION result were ignored:",
+                            paste(dec$plate[unmatched], dec$analyte[unmatched], collapse = ", ")),
+  if (length(unc_missing)) sprintf("%d analyte(s) have no working range / uncertainty entry (see that section).",
+                                   length(unc_missing))
+)
+generated <- Sys.time()
+```
+
+<style>
+.status { padding: 0.8em 1.2em; border-radius: 6px; font-weight: 600; margin: 1em 0; }
+.status.draft { background: #fdecea; border: 2px solid #c0392b; color: #8e1b10; }
+.status.authorised { background: #e8f6ec; border: 2px solid #1e8449; color: #145a32; }
+.status ul, .status p { margin: 0.4em 0 0 0; font-weight: 400; }
+.eor { text-align: center; margin-top: 3em; padding-top: 1em; border-top: 1px solid #999; }
+.superbigimage { overflow-x: scroll; white-space: nowrap; }
+.superbigimage img { max-width: none; }
+</style>
+
+```{r status, results='asis'}
+cat(sprintf('<div class="status %s">Status: %s', tolower(status), status))
+if (length(reasons)) cat("<ul>", paste0("<li>", reasons, "</li>", collapse = ""), "</ul>")
+if (params$revision > 0 && nzchar(txt(params$supersedes))) {
+  cat(sprintf("<p>This report supersedes report <strong>%s</strong>.</p>", params$supersedes))
+}
+for (n in notes_banner) cat(sprintf("<p>Note: %s</p>", n))
+cat("</div>")
+```
+
+## Report details
+
+```{r details}
+show <- function(x) if (!nzchar(txt(x))) "-" else txt(x)
+data_text <- if (length(input_files) == 1 && grepl("\\.rds$", input_files, ignore.case = TRUE)) {
+  paste("Saved dataElement:", basename(input_files))
+} else if (length(input_files)) {
+  sprintf("%d %s file(s), listed under Input data", length(input_files),
+          toupper(tools::file_ext(input_files[1])))
+} else "dataElement"
+
+acq <- unlist(lapply(dae@obsDescr, function(d) {
+  if ("Acquisition Date" %in% names(d)) as.numeric(as.POSIXct(d$`Acquisition Date`)) else NULL
+}))
+acq <- acq[!is.na(acq)]
+acq_text <- if (length(acq)) {
+  r <- format(as.POSIXct(range(acq), origin = "1970-01-01"), "%Y-%m-%d")
+  if (r[1] == r[2]) r[1] else paste(r, collapse = " to ")
+} else "not recorded in the data"
+
+knitr::kable(data.frame(
+  Item = c("Report ID", "Revision", "Laboratory", "Address", "Location of analysis",
+           "Client", "Contact Information", "Sample Received Date","Project", "Run ID", "Assay", "Method / SOP", "Instrument",
+           "Data", "Acquisition dates", "Plate order", "Report generated"),
+  Value = c(show(params$reportID),
+            if (params$revision > 0) sprintf("%s (supersedes %s)", params$revision, show(params$supersedes))
+            else "0 (original)",
+            lab$name, lab$address, lab$location,
+            show(params$client), show(params$contact), show(params$sampleReceivedDate),
+            show(params$project), show(params$runID), assay,
+            show(params$methodID), show(params$instrument),
+            data_text, acq_text, table_data$note,
+            sprintf("%s by %s", format(generated, "%Y-%m-%d %H:%M %Z"), Sys.info()[["user"]]))
+), col.names = c("", ""))
+```
+
+### Reference materials
+
+```{r materials}
+knitr::kable(materials, row.names = FALSE)
+```
+
+### Samples analysed
+
+```{r samples}
+# Injection counts per sample type and plate, from the analyte with the most rows
+non_is <- dae@obsDescr[!grepl("[IS]", names(dae@obsDescr), fixed = TRUE)]
+ref <- non_is[[which.max(vapply(non_is, nrow, 1L))]]
+counts <- as.data.frame.matrix(table(ref$sampleType, ref$plateID))
+counts <- counts[, intersect(plates, colnames(counts)), drop = FALSE]
+knitr::kable(cbind(`Sample type` = rownames(counts), counts), row.names = FALSE,
+             caption = sprintf("Injections per plate: %d plate(s), %d analyte(s) reported",
+                               length(plates), length(analytes)))
+```
+
+## Notes
+
+<!-- Notes come from `notes:` in the YAML header (or generateReport(notes = )):
+     deviations from the method, instrument or integration issues, reruns,
+     excluded samples, client requests. -->
+
+```{r notes, results='asis'}
+cat(if (nzchar(trimws(txt(params$notes)))) params$notes else "None.", "\n")
+```
+
+## QC criteria and decision rule
+
+An analyte is **PASS** on a plate only if all three criteria are met:
+
+| Metric | Criterion | Sample type |
+|---|---|---|
+| `R2` | ≥ `r crit$R2_MIN` | calibration |
+| `totalQCPassPerc` | ≥ `r crit$QC_PASS_MIN`% of QC injections with Accuracy/Recovery between `r crit$ACC_RANGE[1]`% and `r crit$ACC_RANGE[2]`% | `qc` |
+| `r if (ref_type == "pqc") "PQC_RSD" else "LTR_RSD"` | ≤ `r crit$RSD_MAX`% | `r ref_type` |
+
+**Decision rule.** Simple acceptance: each metric is compared directly against its limit; measurement uncertainty is not applied as a guard band, and a value equal to a limit meets it. If a metric cannot be calculated (no R2, no QC injections, or fewer than two `r ref_type` values), the analyte is **CAUTION**.
+
+**CAUTION is not a release decision.** Every CAUTION result is reviewed and given a disposition (Accept with justification, Re-run, or Reject) in the [CAUTION review](#caution-review) before the report is authorised.
+
+## Working range and measurement uncertainty
+
+```{r uncertainty, results='asis'}
+if (is.null(unc)) {
+  cat("No working range / uncertainty table is available for assay", assay, "\n")
+} else {
+  shown <- unc
+  names(shown)[names(shown) == "analyte"]   <- "Analyte"
+  names(shown)[names(shown) == "units"]     <- "Units"
+  names(shown)[names(shown) == "U_percent"] <- "Expanded uncertainty U (%, k = 2)"
+  cat("Source:", unc_from, "\n\n")
+  print(knitr::kable(shown, row.names = FALSE))
+  if (unc_no_U) {
+    cat("\nExpanded uncertainty has not been entered in this table.\n")
+  }
+}
+if (length(unc_missing)) {
+  cat("\n**No entry for:**", paste(unc_missing, collapse = ", "),
+      "(names must match the analyte names in the data exactly).\n")
+}
+```
+
+## QC Summary Tables
+
+```{r pressure1}
 # Use tagList to collect and render HTML tables properly in a loop
 html_output <- tagList()
-table_data <- summaryTables(dae = dae, plateOrder = params$plateOrder)
 
 for (table_name in names(table_data[["tables"]])) {
   table <- table_data[["tables"]][[table_name]]
-  
+
   # Add a title for each table
   html_output <- tagAppendChild(html_output, h3(paste("Table for", table_name)))
-  
+
   # Append table to html_output
   if (inherits(table, "gt_tbl")) {
     html_output <- tagAppendChild(html_output, table)  # Append gt table
@@ -50,39 +460,90 @@ for (table_name in names(table_data[["tables"]])) {
 html_output
 ```
 
+## CAUTION review {#caution-review}
+
+```{r review, results='asis'}
+if (!nrow(review)) {
+  cat("No CAUTION results. All analytes met all criteria on every plate.\n")
+} else {
+  cat("Failed criteria are worked out from the QC results. Decisions come from the",
+      "`decisions` table at the top of this notebook; blank rows are still open.\n\n")
+  print(knitr::kable(review, row.names = FALSE))
+}
+```
+
 ## Analyte Plots
 
-```{r pressure2, fig.width = 24, fig.height = 6, echo = FALSE}
-scale <- params$scale
-plot_data <- suppressMessages(suppressWarnings(plotQC(dae = dae, scale = params$scale, plateOrder = params$plateOrder)))
+```{r pressure2}
+plot_data <- suppressMessages(suppressWarnings(plotQC(dae = dae, scale = params$scale, plateOrder = plate_order)))
 
-num_plates <- length(unique(plot_data[[1]]$data$plateID)) 
+num_plates <- length(unique(plot_data[[1]]$data$plateID))
 fig_width <- max(12, num_plates * 3)  # Adjust multiplier as needed
 ```
-<style>
-  .superbigimage{
-      overflow-x:scroll;
-      white-space: nowrap;
-  }
-
-  .superbigimage img{
-     max-width: none;
-  }
-
-
-</style>
 
 <div class="superbigimage">
 
-```{r plot_it , echo = FALSE, fig.width=fig_width, fig.height=6}
-
+```{r plot_it, fig.width=fig_width, fig.height=6}
 for (i in seq_along(plot_data)) {
-print(plot_data[[i]])
+  print(plot_data[[i]])
   cat("\n\n")
 }
 ```
 </div>
 
+## Input data
 
+Checksums identify the exact files this report was produced from. Recalculating them on the archived files should give the same values.
 
+```{r checksums, results='asis'}
+if (length(input_files)) {
+  print(knitr::kable(data.frame(File = basename(input_files),
+                                Folder = dirname(input_files),
+                                `Size (bytes)` = file.size(input_files),
+                                MD5 = unname(tools::md5sum(input_files)),
+                                check.names = FALSE), row.names = FALSE))
+} else {
+  cat("The data was supplied as a dataElement in the R session, so there are no input files to checksum.\n")
+}
+```
 
+## Sign-off
+
+```{r signoff}
+so <- signoff
+so$Initials[!signed] <- "________"
+so$Date <- ifelse(signed, format(generated, "%Y-%m-%d"), "____-__-__")
+knitr::kable(so, row.names = FALSE)
+```
+
+Initials are recorded in this notebook's YAML header; the date is the date this revision was knitted.
+
+## Software
+
+```{r software}
+pkg_row <- function(pkg) {
+  d <- suppressWarnings(utils::packageDescription(pkg))
+  if (!is.list(d)) return(data.frame(Package = pkg, Version = "not installed", Commit = ""))
+  data.frame(Package = pkg, Version = d$Version,
+             Commit = if (!is.null(d$RemoteSha)) substr(d$RemoteSha, 1, 7) else "")
+}
+sw <- do.call(rbind, lapply(c("ms.qc.report", "fusion", "ms.parser"), pkg_row))
+if (!is.na(pkg_commit)) {
+  sw$Commit[sw$Package == "ms.qc.report"] <- paste0(pkg_commit, if (pkg_dirty) " (uncommitted changes)" else "")
+}
+sw <- rbind(sw, data.frame(Package = "R", Version = paste(R.version$major, R.version$minor, sep = "."),
+                           Commit = ""))
+knitr::kable(sw, row.names = FALSE,
+             caption = if (!is.na(pkg_commit)) "ms.qc.report was loaded from source; its commit is read from the source folder." else
+               "Commit is shown for packages installed from GitHub.")
+```
+
+<details><summary>Full session info</summary>
+
+```{r session}
+sessionInfo()
+```
+
+</details>
+
+<div class="eor"><strong>End of report `r params$reportID`</strong> · revision `r params$revision` · status `r status`</div>

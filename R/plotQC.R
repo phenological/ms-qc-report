@@ -1,19 +1,20 @@
 #'plotQC
 #'
-#'Plots sample types across plates, excluding blanks. If Acquisition Date is 
-#'available and there are no NAs, plates appear in date order, otherwise in name
-#'order or order provided (see plateOrder argument).
+#'Plots sample types across plates, excluding blanks and internal standards.
+#'Plates appear in the same order as in summaryTables(): the order provided
+#'(see plateOrder argument), otherwise by Acquisition Date if every plate has
+#'one, otherwise by name.
 #' @param dae - dae of targeted Mass Spectrometry.
 #' @param optns list of options
 #' @param scale - Boolean. TRUE if the data should be log10(value + 1)
 #' @param plateOrder NULL or character vector of order of plates desired. 
-#' Default is NULL. Supply as c("COVp002", "COVp001", "COVp020") etc.
+#' Default is NULL. Supply as c("COVp002", "COVp001", "COVp020") etc. Plates
+#' not listed are added at the end.
 #' @return list of plots with a slot for each analyte.
 #'
 #' @export
 #' @import patchwork
 #' @import ggplot2
-#' @import ggpubr
 #' @import grid
 #' @importFrom reshape2 melt
 #'
@@ -22,32 +23,43 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
   
   QCLTRData <- summaryData(dae = dae)
   
+  # one plate order for every plot, the same as summaryTables()
+  ord <- plateOrderInfo(dae, plateOrder)
+  note <- ord$note
+  
   #don't need allPlates slot
   QCLTRData[["allPlates"]] <- NULL
   
   plots <- list()
   for(i in 1:length(dae@obsDescr)){
     df <- dae@obsDescr[[i]]
-    df$AnalyteName <- sapply(strsplit(df$AnalyteName, "-"), function(x) x[1])
     
-    # #remove IS
-    # if(any(grepl("\\[IS\\]", df$AnalyteName))) next
-    if(!any(df$AnalyteName %in% BA_names)) next
+    # remove internal standards, before any renaming
+    if(any(isInternalStandard(df$AnalyteName))) next
     
-    # columns
+    # keep names whole, except BA: "CDCA-Chenodeoxycholic acid" -> "CDCA"
+    df$AnalyteName <- cleanAnalyteName(df$AnalyteName, dae@method)
+    if(dae@method=="BA"){
+      if(!any(df$AnalyteName %in% BA_names)) next
+    }
+    
+    # columns needed for the plot
     qCCols <- c(
       "plateID",
       "AnalysisName",
       "AnalyteName",
+      "sampleType",
       "Area",
       "ISTD Area",
-      # "relative Area",
-      "Quantity",
-      "Expected Quantity",
-      "Internal standard used for calibration function calculation")
+      "Quantity")
     
     #are required columns present
-    qCCols %in% names(df)
+    missingCols <- setdiff(qCCols, names(df))
+    if (length(missingCols)) {
+      warning("No plot for ", df$AnalyteName[1], ": missing column(s) ",
+              paste(missingCols, collapse = ", "), call. = FALSE)
+      next
+    }
     
     # Rename specific columns in the df
     colnames(df)[colnames(df) == "ISTD Area"] <- "AreaSIL"
@@ -58,10 +70,9 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
     numCols <- c("Area",
                  "AreaSIL",
                  # "Response",
-                 "Conc",
-                 "Expected Quantity")
+                 "Conc")
     
-    df[numCols] <- lapply(df[numCols], as.numeric)
+    df[numCols] <- lapply(df[numCols], function(x) suppressWarnings(as.numeric(x)))
     
     #change NA to 0
     cols <- c("Area", 
@@ -73,10 +84,6 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
       x[is.na(x)] <- 0
       return(x)
     })
-    
-    # Extract numeric part from plateID (removes "COVp")
-    df$plateID_numeric <- as.numeric(sub(".*?(\\d+)$", "\\1", df$plateID))
-    
     
     #if -rerun instead of _rerun
     if (any(grepl("-rerun", df$AnalysisName, ignore.case = TRUE))) {
@@ -111,26 +118,21 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
       return(NA)
     })
     
-    #sometimes the AnalysisName doesn't have the injection counter included, in older cases where the runID is a number isntead of COVr40 etc, it'll use that instead which ruins the plot. 
-    idx <- which(df$plateExperimentID > 200)
+    #sometimes the AnalysisName doesn't have the injection counter included, in older cases where the runID is a number isntead of COVr40 etc, it'll use that instead which ruins the plot.
+    # Put those injections after the real ones, each with its own number.
+    idx <- which(is.na(df$plateExperimentID) | df$plateExperimentID > 200)
     
     if(length(idx) > 0){
-      for (id in idx) {
-        df[id, "plateExperimentID"] <- max(df[which(df$plateExperimentID < 200), "plateExperimentID"]) + 1
-      }
+      good <- df$plateExperimentID[!is.na(df$plateExperimentID) & df$plateExperimentID <= 200]
+      df$plateExperimentID[idx] <- (if (length(good)) max(good) else 0) + seq_along(idx)
     }
-    
-    # Create the runIndex by combining plateID numeric part and plateExperimentID with leading zeros
-    df$runIndex <- as.numeric(sprintf("%d.%03d", df$plateID_numeric, df$plateExperimentID))
-    
-    #arrange in plate and count id
-    df <- df[order(df$runIndex), ]
     
     #set colors
     plotFill = c(
       "sample" = "cornflowerblue",
       "ltr" = "darkorange",
       "sltr" = "purple3",
+      "vltr" = "gold",
       "cal" = "black",
       "qc" = "black",
       "pqc" ="lightgreen"
@@ -140,6 +142,7 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
       "sample" = "cornflowerblue",
       "ltr" = "black",
       "sltr" = "black",
+      "vltr" = "black",
       "cal" = "black",
       "qc" = "black",
       "pqc" = "black"
@@ -149,54 +152,46 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
       "sample" = 4,
       "ltr" = 24,
       "sltr" = 25,
+      "vltr" = 23,
       "cal" = 1,
       "qc" = 4,
       "pqc" = 24
     )
     
+    # any other sample type is drawn in grey rather than dropped
+    other <- setdiff(unique(df$sampleType), c(names(plotShape), "blank"))
+    plotFill[other] <- "grey60"
+    plotColor[other] <- "grey40"
+    plotShape[other] <- 3
+    
     #remove blanks
     idx <- which(df$sampleType == "blank")
     
-    if(length(idx>0)){
+    if(length(idx) > 0){
       df <- df[-idx, ]
     }
     
     #pass/fail information
     
+    # (stays NA if this analyte has no QC result on a plate)
     df$PassFail <- NA
     for(plate in unique(df$plateID)){
-      df[which(df$plateID == plate), "PassFail"] <- QCLTRData[[plate]][which(QCLTRData[[plate]]$AnalyteName == unique(df$AnalyteName)), "PassFail"]
+      plate_result <- QCLTRData[[plate]]
+      value <- plate_result$PassFail[plate_result$AnalyteName == df$AnalyteName[1]]
+      if (length(value)) df[which(df$plateID == plate), "PassFail"] <- value[1]
     }
     ######Plate Order#######
+    df$plateID <- factor(df$plateID, levels = ord$order)
     
-    if("Acquisition Date" %in% names(df) && all(!is.na(df$`Acquisition Date`)) & is.null(plateOrder)){
-      #factor plates
-      plate_min_times <- aggregate(`Acquisition Date` ~ plateID, data = df, min)
-      
-      # Order plateIDs by their minimum Acquisition Time
-      ordered_plateIDs <- plate_min_times$plateID[order(plate_min_times$`Acquisition Date`)]
-      
-      # Factorize plateID in df based on the sorted order
-      df$plateID <- factor(df$plateID, levels = ordered_plateIDs)
-      note <- "Plates automatically ordered by Acquisition Date"
-    }
+    #arrange in plate and injection order
+    df <- df[order(df$plateID, df$plateExperimentID), ]
     
-    if((any(is.na(df$`Acquisition Date`)) | !("Acquisition Date" %in% names(df))) && is.null(plateOrder)){
-      # print(paste0("No Acquisition Date present or it contains NAs, please provide plateOrder, else plate name is used for ", names(dae@obsDescr)[[i]]))
-      note <- "Plates ordered by name (No Acquisition Date or contains NAs, may provide plateOrder)"
-    }
-    
-    if(!is.null(plateOrder)){
-      df$plateID <- factor(df$plateID, levels = plateOrder)
-      note <- "Plates in order manually provided"
-    }
     #transform to long
     y_columns <- c("Area", 
                    "AreaSIL", 
                    # "Response", 
                    "Conc")
     df_long <- melt(df, id.vars = c("plateExperimentID", "sampleType", "plateID", "PassFail"), measure.vars = y_columns)
-    df_long$fill_color <- ifelse(df_long$PassFail == "CAUTION", "red", NA)
     
     #possible log10(value + 1) scaling
     if(scale == TRUE){
@@ -211,7 +206,7 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
                           color = sampleType,
                           shape = sampleType,
                           fill = sampleType)) +
-      geom_rect(data = subset(df_long[!duplicated(df_long[c("plateID", "variable")]) & df_long$PassFail == "CAUTION", ]),
+      geom_rect(data = df_long[!duplicated(df_long[c("plateID", "variable")]) & df_long$PassFail %in% "CAUTION", ],
                 fill = "red", 
                 xmin = -Inf, 
                 xmax = Inf, 
@@ -223,7 +218,7 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
       geom_point(data = subset(df_long, sampleType == "ltr")) + 
       facet_grid(rows = vars(variable),
                  cols = vars(plateID),
-                 scales = "free_y", switch = "both")  +  # Facet by column names
+                 scales = "free_y", switch = "both", drop = FALSE)  +  # Facet by column names
       scale_x_continuous(labels = NULL) +
       theme_minimal() +
       scale_fill_manual(values = plotFill, na.value = "transparent") +
@@ -278,7 +273,7 @@ plotQC <- function(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
       facet_wrap(~variable, 
                  ncol = 1, 
                  strip.position = "right",
-                 scale = "free_y") + ## Added scale = "free_y" to allow different y-axis scales for each variable
+                 scales = "free_y") + # different y-axis scales for each variable
       geom_boxplot() +
       theme_bw() +
       theme(axis.line = element_line(color='black'),

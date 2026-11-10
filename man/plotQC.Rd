@@ -16,7 +16,8 @@ plotQC(dae = NULL, scale = FALSE, plateOrder = NULL, optns = list())
 }}
 
 \item{plateOrder}{NULL or character vector of order of plates desired.
-Default is NULL. Supply as c("COVp002", "COVp001", "COVp020") etc.}
+Default is NULL. Supply as c("COVp002", "COVp001", "COVp020") etc. Plates
+not listed are added at the end.}
 
 \item{optns}{list of options}
 }
@@ -24,7 +25,8 @@ Default is NULL. Supply as c("COVp002", "COVp001", "COVp020") etc.}
 list of plots with a slot for each analyte.
 }
 \description{
-Plots sample types across plates, excluding blanks. If Acquisition Date is
-available and there are no NAs, plates appear in date order, otherwise in name
-order or order provided (see plateOrder argument).
+Plots sample types across plates, excluding blanks and internal standards.
+Plates appear in the same order as in summaryTables(): the order provided
+(see plateOrder argument), otherwise by Acquisition Date if every plate has
+one, otherwise by name.
 }

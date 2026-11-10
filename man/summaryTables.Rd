@@ -12,15 +12,17 @@ summaryTables(dae = NULL, plateOrder = NULL)
 }}
 
 \item{plateOrder}{Character vector of order plates should appear in. For
-example c("COVp005", "COVp002", "COVp001"). The default is NULL resulting in
-an order from Acquisition date (if present for all plates), or name order.}
+example c("COVp005", "COVp002", "COVp001"); plates not listed are added at
+the end. The default is NULL resulting in an order from Acquisition date (if
+present for all plates), or name order. plotQC() uses the same order.}
 }
 \value{
-list of tables and matching data with a slot for each plate. Criteria
-for PASS, must meet all 3 criteria of R2 is ≥ 0.99, LTR RSD is ≤ 20 or "N/A"
-(uses ltr sampleType Quantity), totalQCInjectionPass fraction of qc samples
-with 80=< Accuracy/Recovery\verb{[\%]} =< 120 totalQCPass(\%), percent of qc injections
-that have 80=< Accuracy/Recovery\verb{[\%]} =< 120. Pass needs to be ≥ 66\% (uses qc sampleType)
+list with \code{data} and \code{tables} (a slot for each plate, then
+"allPlates") and \code{note} (how plates were ordered). PASS needs all 3 criteria
+in QC_CRITERIA (R/Constants.R): R2 >= 0.99; >= 66\% of qc injections with
+80 <= \verb{Accuracy/Recovery[\%]} <= 120; LTR RSD <= 20 (PQC RSD for SCFA).
+Anything missing gives CAUTION. Cells are green when they meet their
+criterion and red otherwise.
 }
 \description{
 Displays status (pass or caution) for each analyte in each plate in table format.
