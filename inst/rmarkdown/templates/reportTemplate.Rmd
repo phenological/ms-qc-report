@@ -23,9 +23,9 @@ params:
   methodID: ""              # method / SOP reference and version
   instrument: ""        # instrument name or serial number
   # ---- Data ---------------------------------------------------------------
-  data: "~/OneDrive - Murdoch University/Data/covid19/cambridgeFollowUp/rawData/MS/AA/" # exported files, a folder, or an .rds file -- see the note below
-  fileType: "tsv"             # "xml", "tsv" or "txt"; blank = from the file extensions
-  plateOrder: "AA"              # e.g. "COVp02, COVp01"; blank = automatic
+  data: "" # exported files, a folder, or an .rds file -- see the note below
+  fileType: ""             # "xml", "tsv" or "txt"; blank = from the file extensions
+  plateOrder: ""              # e.g. "COVp02, COVp01"; blank = automatic
   scale: TRUE                 # TRUE = plot log10(value + 1)
   # ---- Sign-off (initials) ------------------------------------------------
   ms_specialist_1: ""       # data processed and report prepared

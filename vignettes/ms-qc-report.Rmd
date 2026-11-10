@@ -1,0 +1,716 @@
+---
+title: "Making an MS QC report"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Making an MS QC report}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+`ms.qc.report` turns the exported results of a targeted MS run into an
+HTML QC report for any of the assays **SCFA, AA, BA, TRY and ddhN**. The
+report is laid out as an ISO/IEC 17025 record:
+
+1.  **Status**: DRAFT or AUTHORISED, with what is still outstanding
+2.  **Report details**: report ID and revision, laboratory, client,
+    sample receipt, run, method, instrument, acquisition dates, plate
+    order
+3.  **Reference materials** and **samples analysed**
+4.  **Notes**: deviations, reruns, excluded samples
+5.  **QC criteria and decision rule**
+6.  **Working range and measurement uncertainty**
+7.  **QC summary tables**: PASS / CAUTION for each analyte on each plate
+8.  **CAUTION review**: every CAUTION result, the criteria it failed,
+    and the decision made
+9.  **Analyte plots**
+10. **Input data**: each file with its MD5 checksum
+11. **Sign-off** and **Software** (package versions and git commit)
+
+## 1. Installation
+
+```{r}
+# install.packages("remotes")
+remotes::install_github("phenological/ms-qc-report")
+library(ms.qc.report)
+```
+
+This also installs `fusion` and `ms.parser` from GitHub.
+
+## 2. A first report
+
+The only required arguments are `data` and `assay`:
+
+```{r}
+generateReport(
+  data        = "~/Downloads/BA_xml/",
+  assay       = "BA",
+  output_file = "BA_check.html"
+)
+```
+
+This report will say **DRAFT**: nobody has signed it off and the CAUTION
+results have no decisions yet. That is fine for a first look at the run.
+
+To try the package on its example data (two AA plates):
+
+```{r}
+generateReport(
+  data        = system.file("extdata", package = "ms.qc.report"),
+  assay       = "AA",
+  output_file = "example_AA.html"
+)
+```
+
+## 3. A complete report
+
+```{r}
+generateReport(
+  # the data
+  data        = "~/Downloads/BA_xml/",
+  assay       = "BA",
+
+  # report details
+  title       = "IRMA SRVr015 MS BA",
+  output_file = "IRMA_SRVr015_MS_BA.html",
+  reportID    = "IRMA_SRVr015_MS_BA_QC_20261110",
+  client      = "Dr Client Name",
+  contact     = "client@example.com",
+  sampleReceivedDate = "2026-10-28",
+  project     = "IRMA",
+  runID       = "SRVr015",
+  methodID    = "v2",
+  instrument  = "PAI03",
+
+  # what happened during the run
+  notes       = "Plate SRVp002 re-injected after a column change.",
+  materials   = c(Calibrants = "CAL-2411", "QC material" = "QC-2410",
+                  "Internal standard mix" = "IS-0932"),
+
+  # decisions on CAUTION results (see section 6)
+  decisions   = data.frame(
+    plate         = c("SRVp001", "SRVp002"),
+    analyte       = c("GCA", "TLCA"),
+    disposition   = c("Accept", "Re-run"),
+    justification = c("Low calibrant excluded per SOP; R2 0.996 after exclusion", NA)
+  ),
+
+  # sign-off
+  ms_specialist_1 = "YW",
+  ms_specialist_2 = "MR",
+  ms_lead         = "RK"
+)
+```
+
+`generateReport()` prints where the report was saved and returns the
+path, so you can open it straight away:
+
+```{r}
+out <- generateReport(data = "~/Downloads/BA_xml/", assay = "BA")
+browseURL(out)
+```
+
+### All arguments
+
+| Argument | What to give |
+|------------------------------------|------------------------------------|
+| `data` | The data; see section 4. **Required.** |
+| `assay` | `"SCFA"`, `"AA"`, `"BA"`, `"TRY"` or `"ddhN"`. **Required.** |
+| `fileType` | `"xml"`, `"tsv"` or `"txt"`. Optional: taken from the file extensions. |
+| `title` | Title shown at the top of the report. |
+| `output_file` | Where to save the report. A bare file name goes in the working directory; `.html` is added if missing. |
+| `reportID` | Unique report ID. If left out, one is made from `project`, `runID`, `assay` and today's date, e.g. `IRMA_SRVr015_MS_BA_QC_20261110`. |
+| `revision`, `supersedes` | For a reissued report; see section 9. |
+| `client`, `contact` | Client name and contact details. |
+| `sampleReceivedDate` | Date the samples were received, as `"YYYY-MM-DD"`. |
+| `project`, `runID` | e.g. `"IRMA"`, `"SRVr015"`. |
+| `methodID` | Method / SOP reference and version. |
+| `instrument` | Instrument name or serial number. |
+| `notes` | Deviations from the method, reruns, excluded samples, client requests. Shown as "None." if empty. |
+| `materials` | Lots / IDs of reference materials, as a named vector or a data frame. |
+| `decisions` | Decisions on CAUTION results; see section 6. |
+| `uncertainty` | A different working range / uncertainty table for this report; see section 7. |
+| `ms_specialist_1`, `ms_specialist_2`, `ms_lead` | Sign-off initials; see section 8. |
+| `plateOrder` | The order plates appear in; see section 5. |
+| `scale` | `TRUE` (default) plots `log10(value + 1)`; `FALSE` plots raw values. |
+
+Recommended naming:
+`projectName_cohortName_sampleMatrixType_runID_MS_assay`, for example
+`covid19_biogune_PLA_COVr01_MS_AA.html`.
+
+## 4. The data
+
+Exported files must all be the same type: **all XML, all TSV or all
+TXT**. Give them in whichever way is easiest:
+
+```{r}
+# a folder: every .xml / .tsv / .txt file in it
+data = "~/Downloads/BA_xml/"
+
+# a series of files, e.g. one per plate
+data = c("~/exports/SRVp001.xml", "~/exports/SRVp002.xml")
+
+# the same as one comma-separated string
+data = "~/exports/SRVp001.xml, ~/exports/SRVp002.xml"
+
+# a wildcard
+data = "~/exports/SRVp*.xml"
+
+# a dataElement saved with saveRDS()
+data = "~/run/IRMA_SRVr015_MS_BA.rds"
+
+# a dataElement already in your R session (no quotes)
+data = IRMA_SRVr015_MS_BA
+```
+
+Each file is read with the `ms.parser` reader for the assay (for example
+`ms.parser::readBA()`), and the files are combined into one dataElement.
+This works even when plates don't all contain the same analytes.
+
+Relative paths are taken from your working directory. On Windows, use
+forward slashes (`"C:/Users/username/Desktop/run"`) or double
+backslashes (`"C:\\Users\\username\\Desktop\\run"`).
+
+### Which analytes are reported
+
+-   **Internal standards** (names containing `[IS]`) are never reported.
+-   **BA**: only the bile acids listed in `BA_names` (in
+    `R/Constants.R`). `ms.parser` names bile acids like
+    `CDCA-Chenodeoxycholic acid`; the report shows the abbreviation,
+    `CDCA`.
+-   **AA, TRY, ddhN, SCFA**: every analyte, with names exactly as in the
+    data (e.g. `1-methylhistidine`).
+
+## 5. Plate order
+
+The tables and every plot use the same plate order:
+
+1.  the order you give, e.g. `plateOrder = c("SRVp002", "SRVp001")`.
+    Plates you leave out are added at the end, and a name that isn't in
+    the data gives a warning;
+2.  otherwise by each plate's earliest Acquisition Date, if every plate
+    has one;
+3.  otherwise by plate name, in natural order (`COVp2` before `COVp10`).
+
+The order used is recorded under Report details and under each plot.
+
+## 6. QC criteria and CAUTION decisions
+
+An analyte is **PASS** on a plate only if all three criteria are met:
+
+| Metric | Criterion | Samples used |
+|------------------------|------------------------|------------------------|
+| `R2` | ≥ 0.99 | calibration |
+| `totalQCPassPerc` | ≥ 66% of QC injections with Accuracy/Recovery between 80% and 120% | `qc` |
+| `LTR_RSD` | ≤ 20% | `ltr` (`pqc` for SCFA, shown as `PQC_RSD`) |
+
+The analyte is **CAUTION** if any criterion fails, or if one can't be
+calculated: no R2 reported, no QC injections on the plate, or fewer than
+two LTRs. A QC injection with no accuracy value counts as a fail. Values
+equal to a limit meet it.
+
+The limits are set once, in `QC_CRITERIA` in `R/Constants.R`. The
+summary tables, the cell colours and the criteria printed in the report
+all use them, so they always agree.
+
+### Recording decisions
+
+CAUTION is not a release decision. The **CAUTION review** section lists
+every CAUTION result with the criteria it failed, for example:
+
+| Plate | Analyte | Failed criteria |
+|------------------------|------------------------|------------------------|
+| JUVp003 | Isoleucine | LTR RSD 25.99% \> 20% |
+| PLASMA8B | Homocysteine | R2 0.8915 \< 0.99; QC pass 46.15% (6/13) \< 66%; LTR RSD not calculable (\< 2 values) |
+
+The reviewer records a decision for each one in `decisions`:
+
+```{r}
+decisions = data.frame(
+  plate         = c("JUVp003", "PLASMA8B"),
+  analyte       = c("Isoleucine", "Homocysteine"),
+  disposition   = c("Accept", "Re-run"),
+  justification = c("Not in client panel; reported for information only", NA)
+)
+```
+
+-   `disposition` is `"Accept"`, `"Re-run"` or `"Reject"`.
+-   `"Accept"` needs a `justification`; without one the report stops
+    with a message.
+-   Plate and analyte names must match the CAUTION review exactly. A
+    decision that matches no CAUTION result is listed in the status box.
+
+A practical way to work: make the report once without `decisions`, copy
+the plate and analyte names from the CAUTION review, then add the
+decisions and make it again.
+
+## 7. Working range and measurement uncertainty
+
+By default the report shows the package table for the run's assay, kept
+as a CSV file in the package:
+
+```         
+inst/uncertainty/AA.csv
+inst/uncertainty/BA.csv
+```
+
+Each file has one row per analyte:
+
+```         
+analyte,LLOQ,ULOQ,units,U_percent
+1-methylhistidine,1,400,µM,
+Alanine,1,400,µM,
+```
+
+| Column | Meaning |
+|------------------------------------|------------------------------------|
+| `analyte` | Exactly as in the data: `1-methylhistidine`, not `1-Methylhistidine`. For BA, the abbreviation (`CDCA`). |
+| `LLOQ`, `ULOQ` | Working range of the method. |
+| `units` | e.g. `µM`, `nM`. |
+| `U_percent` | Expanded measurement uncertainty, %, k = 2. |
+
+The report shows only the analytes in the run. It lists any analyte that
+has no entry, and says so if `U_percent` is empty. Both also appear as
+notes in the status box, so a name mismatch can't go unnoticed.
+
+**To change the table for every future report**, edit the CSV in Excel
+(save as CSV UTF-8) and reinstall the package. **To add an assay**, add
+a file named after it, e.g. `inst/uncertainty/TRY.csv`.
+
+**To use a different table for one report**, give a CSV file or a data
+frame:
+
+```{r}
+generateReport(data = "~/Downloads/BA_xml/", assay = "BA",
+               uncertainty = "~/Documents/BA_uncertainty_2026.csv")
+
+generateReport(data = "~/Downloads/BA_xml/", assay = "BA",
+               uncertainty = data.frame(analyte = c("CDCA", "GCA"),
+                                        LLOQ = 2.5, ULOQ = 1000, units = "nM",
+                                        U_percent = c(8.4, 9.1)))
+```
+
+## 8. Sign-off and report status
+
+| Role              | Responsibility                     |
+|-------------------|------------------------------------|
+| `ms_specialist_1` | Data processed and report prepared |
+| `ms_specialist_2` | QC results independently reviewed  |
+| `ms_lead`         | Report authorised for release      |
+
+Initials must be 2–4 letters (`"yw"` is stored as `"YW"`). The status
+box notes it if the same initials appear in more than one role.
+
+The report is **DRAFT** until it has:
+
+-   a report ID,
+-   all three sign-off initials,
+-   a decision for every CAUTION result, and
+-   for a revised report, the ID of the report it supersedes.
+
+It then shows **AUTHORISED**. The status box also notes, without
+blocking, if the package was run from source with uncommitted changes.
+
+A typical workflow:
+
+1.  MS specialist 1 makes the report with their initials and checks it.
+2.  MS specialist 2 reviews the CAUTION results, agrees the decisions,
+    and the report is made again with `decisions` and their initials.
+3.  The MS Lead adds their initials and makes the final, AUTHORISED \#
+    Run from the package folder (where DESCRIPTION is)
+    desc::desc_set(VignetteBuilder = "knitr") dir.create("vignettes",
+    showWarnings = FALSE)
+
+vignette_text \<- r"---[--- title: "Making an MS QC report" output:
+rmarkdown::html_vignette vignette: \>
+%\VignetteIndexEntry{Making an MS QC report}
+%\VignetteEngine{knitr::rmarkdown} %\VignetteEncoding{UTF-8} ---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = FALSE)
+```
+
+`ms.qc.report` turns the exported results of a targeted MS run into an
+HTML QC report for any of the assays **SCFA, AA, BA, TRY and ddhN**. The
+report is laid out as an ISO/IEC 17025 record:
+
+1.  **Status**: DRAFT or AUTHORISED, with what is still outstanding
+2.  **Report details**: report ID and revision, laboratory, client,
+    sample receipt, run, method, instrument, acquisition dates, plate
+    order
+3.  **Reference materials** and **samples analysed**
+4.  **Notes**: deviations, reruns, excluded samples
+5.  **QC criteria and decision rule**
+6.  **Working range and measurement uncertainty**
+7.  **QC summary tables**: PASS / CAUTION for each analyte on each plate
+8.  **CAUTION review**: every CAUTION result, the criteria it failed,
+    and the decision made
+9.  **Analyte plots**
+10. **Input data**: each file with its MD5 checksum
+11. **Sign-off** and **Software** (package versions and git commit)
+
+## 1. Installation
+
+```{r}
+# install.packages("remotes")
+remotes::install_github("phenological/ms-qc-report")
+library(ms.qc.report)
+```
+
+This also installs `fusion` and `ms.parser` from GitHub.
+
+## 2. A first report
+
+The only required arguments are `data` and `assay`:
+
+```{r}
+generateReport(
+  data        = "~/Downloads/BA_xml/",
+  assay       = "BA",
+  output_file = "BA_check.html"
+)
+```
+
+This report will say **DRAFT**: nobody has signed it off and the CAUTION
+results have no decisions yet. That is fine for a first look at the run.
+
+To try the package on its example data (two AA plates):
+
+```{r}
+generateReport(
+  data        = system.file("extdata", package = "ms.qc.report"),
+  assay       = "AA",
+  output_file = "example_AA.html"
+)
+```
+
+## 3. A complete report
+
+```{r}
+generateReport(
+  # the data
+  data        = "~/Downloads/BA_xml/",
+  assay       = "BA",
+
+  # report details
+  title       = "IRMA SRVr015 MS BA",
+  output_file = "IRMA_SRVr015_MS_BA.html",
+  reportID    = "IRMA_SRVr015_MS_BA_QC_20261110",
+  client      = "Dr Client Name",
+  contact     = "client@example.com",
+  sampleReceivedDate = "2026-10-28",
+  project     = "IRMA",
+  runID       = "SRVr015",
+  methodID    = "v2",
+  instrument  = "PAI03",
+
+  # what happened during the run
+  notes       = "Plate SRVp002 re-injected after a column change.",
+  materials   = c(Calibrants = "CAL-2411", "QC material" = "QC-2410",
+                  "Internal standard mix" = "IS-0932"),
+
+  # decisions on CAUTION results (see section 6)
+  decisions   = data.frame(
+    plate         = c("SRVp001", "SRVp002"),
+    analyte       = c("GCA", "TLCA"),
+    disposition   = c("Accept", "Re-run"),
+    justification = c("Low calibrant excluded per SOP; R2 0.996 after exclusion", NA)
+  ),
+
+  # sign-off
+  ms_specialist_1 = "YW",
+  ms_specialist_2 = "MR",
+  ms_lead         = "RK"
+)
+```
+
+`generateReport()` prints where the report was saved and returns the
+path, so you can open it straight away:
+
+```{r}
+out <- generateReport(data = "~/Downloads/BA_xml/", assay = "BA")
+browseURL(out)
+```
+
+### All arguments
+
+| Argument | What to give |
+|------------------------------------|------------------------------------|
+| `data` | The data; see section 4. **Required.** |
+| `assay` | `"SCFA"`, `"AA"`, `"BA"`, `"TRY"` or `"ddhN"`. **Required.** |
+| `fileType` | `"xml"`, `"tsv"` or `"txt"`. Optional: taken from the file extensions. |
+| `title` | Title shown at the top of the report. |
+| `output_file` | Where to save the report. A bare file name goes in the working directory; `.html` is added if missing. |
+| `reportID` | Unique report ID. If left out, one is made from `project`, `runID`, `assay` and today's date, e.g. `IRMA_SRVr015_MS_BA_QC_20261110`. |
+| `revision`, `supersedes` | For a reissued report; see section 9. |
+| `client`, `contact` | Client name and contact details. |
+| `sampleReceivedDate` | Date the samples were received, as `"YYYY-MM-DD"`. |
+| `project`, `runID` | e.g. `"IRMA"`, `"SRVr015"`. |
+| `methodID` | Method / SOP reference and version. |
+| `instrument` | Instrument name or serial number. |
+| `notes` | Deviations from the method, reruns, excluded samples, client requests. Shown as "None." if empty. |
+| `materials` | Lots / IDs of reference materials, as a named vector or a data frame. |
+| `decisions` | Decisions on CAUTION results; see section 6. |
+| `uncertainty` | A different working range / uncertainty table for this report; see section 7. |
+| `ms_specialist_1`, `ms_specialist_2`, `ms_lead` | Sign-off initials; see section 8. |
+| `plateOrder` | The order plates appear in; see section 5. |
+| `scale` | `TRUE` (default) plots `log10(value + 1)`; `FALSE` plots raw values. |
+
+Recommended naming:
+`projectName_cohortName_sampleMatrixType_runID_MS_assay`, for example
+`covid19_biogune_PLA_COVr01_MS_AA.html`.
+
+## 4. The data
+
+Exported files must all be the same type: **all XML, all TSV or all
+TXT**. Give them in whichever way is easiest:
+
+```{r}
+# a folder: every .xml / .tsv / .txt file in it
+data = "~/Downloads/BA_xml/"
+
+# a series of files, e.g. one per plate
+data = c("~/exports/SRVp001.xml", "~/exports/SRVp002.xml")
+
+# the same as one comma-separated string
+data = "~/exports/SRVp001.xml, ~/exports/SRVp002.xml"
+
+# a wildcard
+data = "~/exports/SRVp*.xml"
+
+# a dataElement saved with saveRDS()
+data = "~/run/IRMA_SRVr015_MS_BA.rds"
+
+# a dataElement already in your R session (no quotes)
+data = IRMA_SRVr015_MS_BA
+```
+
+Each file is read with the `ms.parser` reader for the assay (for example
+`ms.parser::readBA()`), and the files are combined into one dataElement.
+This works even when plates don't all contain the same analytes.
+
+Relative paths are taken from your working directory. On Windows, use
+forward slashes (`"C:/Users/username/Desktop/run"`) or double
+backslashes (`"C:\\Users\\username\\Desktop\\run"`).
+
+### Which analytes are reported
+
+-   **Internal standards** (names containing `[IS]`) are never reported.
+-   **BA**: only the bile acids listed in `BA_names` (in
+    `R/Constants.R`). `ms.parser` names bile acids like
+    `CDCA-Chenodeoxycholic acid`; the report shows the abbreviation,
+    `CDCA`.
+-   **AA, TRY, ddhN, SCFA**: every analyte, with names exactly as in the
+    data (e.g. `1-methylhistidine`).
+
+## 5. Plate order
+
+The tables and every plot use the same plate order:
+
+1.  the order you give, e.g. `plateOrder = c("SRVp002", "SRVp001")`.
+    Plates you leave out are added at the end, and a name that isn't in
+    the data gives a warning;
+2.  otherwise by each plate's earliest Acquisition Date, if every plate
+    has one;
+3.  otherwise by plate name, in natural order (`COVp2` before `COVp10`).
+
+The order used is recorded under Report details and under each plot.
+
+## 6. QC criteria and CAUTION decisions
+
+An analyte is **PASS** on a plate only if all three criteria are met:
+
+| Metric | Criterion | Samples used |
+|------------------------|------------------------|------------------------|
+| `R2` | ≥ 0.99 | calibration |
+| `totalQCPassPerc` | ≥ 66% of QC injections with Accuracy/Recovery between 80% and 120% | `qc` |
+| `LTR_RSD` | ≤ 20% | `ltr` (`pqc` for SCFA, shown as `PQC_RSD`) |
+
+The analyte is **CAUTION** if any criterion fails, or if one can't be
+calculated: no R2 reported, no QC injections on the plate, or fewer than
+two LTRs. A QC injection with no accuracy value counts as a fail. Values
+equal to a limit meet it.
+
+The limits are set once, in `QC_CRITERIA` in `R/Constants.R`. The
+summary tables, the cell colours and the criteria printed in the report
+all use them, so they always agree.
+
+### Recording decisions
+
+CAUTION is not a release decision. The **CAUTION review** section lists
+every CAUTION result with the criteria it failed, for example:
+
+| Plate | Analyte | Failed criteria |
+|------------------------|------------------------|------------------------|
+| JUVp003 | Isoleucine | LTR RSD 25.99% \> 20% |
+| PLASMA8B | Homocysteine | R2 0.8915 \< 0.99; QC pass 46.15% (6/13) \< 66%; LTR RSD not calculable (\< 2 values) |
+
+The reviewer records a decision for each one in `decisions`:
+
+```{r}
+decisions = data.frame(
+  plate         = c("JUVp003", "PLASMA8B"),
+  analyte       = c("Isoleucine", "Homocysteine"),
+  disposition   = c("Accept", "Re-run"),
+  justification = c("Not in client panel; reported for information only", NA)
+)
+```
+
+-   `disposition` is `"Accept"`, `"Re-run"` or `"Reject"`.
+-   `"Accept"` needs a `justification`; without one the report stops
+    with a message.
+-   Plate and analyte names must match the CAUTION review exactly. A
+    decision that matches no CAUTION result is listed in the status box.
+
+A practical way to work: make the report once without `decisions`, copy
+the plate and analyte names from the CAUTION review, then add the
+decisions and make it again.
+
+## 7. Working range and measurement uncertainty
+
+By default the report shows the package table for the run's assay, kept
+as a CSV file in the package:
+
+```         
+inst/uncertainty/AA.csv
+inst/uncertainty/BA.csv
+```
+
+Each file has one row per analyte:
+
+```         
+analyte,LLOQ,ULOQ,units,U_percent
+1-methylhistidine,1,400,µM,
+Alanine,1,400,µM,
+```
+
+| Column | Meaning |
+|------------------------------------|------------------------------------|
+| `analyte` | Exactly as in the data: `1-methylhistidine`, not `1-Methylhistidine`. For BA, the abbreviation (`CDCA`). |
+| `LLOQ`, `ULOQ` | Working range of the method. |
+| `units` | e.g. `µM`, `nM`. |
+| `U_percent` | Expanded measurement uncertainty, %, k = 2. |
+
+The report shows only the analytes in the run. It lists any analyte that
+has no entry, and says so if `U_percent` is empty. Both also appear as
+notes in the status box, so a name mismatch can't go unnoticed.
+
+**To change the table for every future report**, edit the CSV in Excel
+(save as CSV UTF-8) and reinstall the package. **To add an assay**, add
+a file named after it, e.g. `inst/uncertainty/TRY.csv`.
+
+**To use a different table for one report**, give a CSV file or a data
+frame:
+
+```{r}
+generateReport(data = "~/Downloads/BA_xml/", assay = "BA",
+               uncertainty = "~/Documents/BA_uncertainty_2026.csv")
+
+generateReport(data = "~/Downloads/BA_xml/", assay = "BA",
+               uncertainty = data.frame(analyte = c("CDCA", "GCA"),
+                                        LLOQ = 2.5, ULOQ = 1000, units = "nM",
+                                        U_percent = c(8.4, 9.1)))
+```
+
+## 8. Sign-off and report status
+
+| Role              | Responsibility                     |
+|-------------------|------------------------------------|
+| `ms_specialist_1` | Data processed and report prepared |
+| `ms_specialist_2` | QC results independently reviewed  |
+| `ms_lead`         | Report authorised for release      |
+
+Initials must be 2–4 letters (`"yw"` is stored as `"YW"`). The status
+box notes it if the same initials appear in more than one role.
+
+The report is **DRAFT** until it has:
+
+-   a report ID,
+-   all three sign-off initials,
+-   a decision for every CAUTION result, and
+-   for a revised report, the ID of the report it supersedes.
+
+It then shows **AUTHORISED**. The status box also notes, without
+blocking, if the package was run from source with uncommitted changes.
+
+A typical workflow:
+
+1.  MS specialist 1 makes the report with their initials and checks it.
+2.  MS specialist 2 reviews the CAUTION results, agrees the decisions,
+    and the report is made again with `decisions` and their initials.
+3.  The MS Lead adds their initials and makes the final, AUTHORISED
+    version.
+
+## 9. Reissuing a report
+
+Give the new report a revision number and the ID of the report it
+replaces:
+
+```{r}
+generateReport(
+  data       = "~/Downloads/BA_xml/", assay = "BA",
+  reportID   = "IRMA_SRVr015_MS_BA_QC_20261117",
+  revision   = 1,
+  supersedes = "IRMA_SRVr015_MS_BA_QC_20261110",
+  notes      = "Revision 1: GCA on SRVp002 re-run and now within criteria.",
+  output_file = "IRMA_SRVr015_MS_BA_rev1.html"
+)
+```
+
+## 10. Using the template as a notebook
+
+Instead of calling `generateReport()`, you can copy the template, fill
+it in and knit it:
+
+```{r}
+file.copy(system.file("rmarkdown/templates/reportTemplate.Rmd", package = "ms.qc.report"),
+          "IRMA_SRVr015_MS_BA_QC.Rmd")
+```
+
+-   Report details, sign-off, `notes:` and `uncertainty:` are in the
+    YAML header. In RStudio, **Knit \> Knit with Parameters...** shows
+    them as a form.
+-   The laboratory, reference materials and CAUTION decisions are in the
+    `edit-here` chunk at the top.
+-   Knitted from inside the `ms.qc.report` source folder, the template
+    loads the package from source with `devtools::load_all()`; the
+    Software section then records the git commit. Anywhere else it uses
+    the installed package.
+
+## 11. Using the functions directly
+
+```{r}
+library(fusion)
+dae <- parseMS(folder = "~/Downloads/BA_xml/", assay = "BA", fileType = "xml")
+
+tables <- summaryTables(dae, plateOrder = NULL)
+tables$data$SRVp001     # metrics for one plate
+tables$tables$allPlates # LTR RSD across all plates
+tables$note             # how the plates were ordered
+
+plots <- plotQC(dae, scale = TRUE)
+plots[["CDCA"]]
+```
+
+## 12. Troubleshooting
+
+| Message | Cause and fix |
+|------------------------------------|------------------------------------|
+| `assay must be one of ...` | Check the spelling; it is case-sensitive (`"ddhN"`, not `"DDHN"`). |
+| `Data not found: ...` | Check the path. On Windows use `/` or `\\`, not a single `\`. |
+| `No matching files found in: ...` | The folder has no files of that type; check `fileType`. |
+| `All files must be the same type` | The files are a mix of XML / TSV / TXT. |
+| `No QC data to report ...` | No analytes with `qc` and `ltr` (or `pqc`) samples were found. |
+| `plateOrder contains plate(s) not in the data` | A name in `plateOrder` doesn't match a plate ID. |
+| `A justification is required to accept ...` | Add a `justification` for every `"Accept"` in `decisions`. |
+| `disposition must be "Accept", "Re-run" or "Reject"` | Check the spelling in `decisions`. |
+| `` `ms_lead` must be initials `` | Use 2–4 letters. |
+| `A reissued report ... needs supersedes` | Give the ID of the report this one replaces. |
+| `` `sampleReceivedDate` must be a date as "YYYY-MM-DD" `` | e.g. `"2026-10-28"`. |
+| Status note: *analyte(s) have no working range / uncertainty entry* | Add rows to the CSV, with names exactly as in the data. |
