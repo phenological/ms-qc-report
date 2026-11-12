@@ -37,6 +37,9 @@
 #' @param ms_specialist_2 Initials of the person who independently reviewed the
 #'   QC results.
 #' @param ms_lead Initials of the person who authorised the report for release.
+#' @param ms_specialist_1_date,ms_specialist_2_date,ms_lead_date Sign-off
+#'   dates, as "YYYY-MM-DD" or Date objects. If not given, the date the report
+#'   is made is used. Dates can't be in the future.
 #' @param notes Deviations from the method, reruns, excluded samples or other
 #'   remarks. Shown as "None." if empty.
 #' @param materials Lots / IDs of reference materials, as a named vector, e.g.
@@ -48,6 +51,11 @@
 #'   default) uses the package table for the assay
 #'   (inst/uncertainty/<assay>.csv); or give the path to a CSV, or a data frame,
 #'   with columns analyte, LLOQ, ULOQ, units, U_percent.
+#' @param uncertaintyEdits Changes to the uncertainty table for this report
+#'   only: a data frame with an `analyte` column and only the columns to change,
+#'   e.g. `data.frame(analyte = c("CDCA", "GCA"), LLOQ = c(5, NA), ULOQ = c(NA, 2000))`.
+#'   NA keeps the value from the table. The report lists every change. See
+#'   [uncertaintyTable()] for the current values.
 #' @param scale Boolean. TRUE (default) if the data should be log10(value + 1).
 #' @return The path to the generated HTML report, invisibly.
 #' @export
@@ -65,6 +73,9 @@
 #'   sampleReceivedDate = "2026-10-28", project = "IRMA", runID = "SRVr015",
 #'   methodID = "v2", instrument = "PAI03",
 #'   ms_specialist_1 = "YW", ms_specialist_2 = "MR", ms_lead = "RK",
+#'   ms_specialist_1_date = "2026-11-10", ms_specialist_2_date = "2026-11-11",
+#'   ms_lead_date = "2026-11-12",
+#'   uncertaintyEdits = data.frame(analyte = "CDCA", LLOQ = 5),
 #'   decisions = data.frame(plate = "SRVp001", analyte = "GCA",
 #'                          disposition = "Re-run", justification = NA)
 #' )
@@ -75,8 +86,10 @@ generateReport <- function(data = NULL, fileType = NULL, assay = NULL, plateOrde
                            client = NULL, contact = NULL, sampleReceivedDate = NULL,
                            project = NULL, runID = NULL, methodID = NULL, instrument = NULL,
                            ms_specialist_1 = NULL, ms_specialist_2 = NULL, ms_lead = NULL,
+                           ms_specialist_1_date = NULL, ms_specialist_2_date = NULL,
+                           ms_lead_date = NULL,
                            notes = NULL, materials = NULL, decisions = NULL,
-                           uncertainty = NULL, scale = TRUE) {
+                           uncertainty = NULL, uncertaintyEdits = NULL, scale = TRUE) {
 
   # ---- Check the arguments before rendering ------------------------------------
   assays <- c("SCFA", "AA", "BA", "TRY", "ddhN")
@@ -134,6 +147,32 @@ generateReport <- function(data = NULL, fileType = NULL, assay = NULL, plateOrde
       stop("`", role, "` must be initials (2-4 letters), e.g. \"YW\".", call. = FALSE)
     }
     initials[[role]] <- v
+  }
+
+  # Sign-off dates: "YYYY-MM-DD" (or Date), not in the future
+  signoffDates <- list(ms_specialist_1_date = ms_specialist_1_date,
+                       ms_specialist_2_date = ms_specialist_2_date,
+                       ms_lead_date = ms_lead_date)
+  for (nm in names(signoffDates)) {
+    v <- signoffDates[[nm]]
+    if (is.null(v) || (is.character(v) && !nzchar(v))) { signoffDates[[nm]] <- ""; next }
+    d <- if (inherits(v, "Date")) v else as.Date(as.character(v), format = "%Y-%m-%d")
+    if (length(d) != 1 || is.na(d)) stop("`", nm, "` must be a date as \"YYYY-MM-DD\".", call. = FALSE)
+    if (d > Sys.Date()) stop("`", nm, "` is in the future.", call. = FALSE)
+    signoffDates[[nm]] <- format(d, "%Y-%m-%d")
+  }
+
+  if (!is.null(uncertaintyEdits)) {
+    if (!is.data.frame(uncertaintyEdits) || !"analyte" %in% names(uncertaintyEdits)) {
+      stop("`uncertaintyEdits` must be a data frame with an `analyte` column, e.g. ",
+           "data.frame(analyte = \"CDCA\", LLOQ = 5).", call. = FALSE)
+    }
+    allowed <- c("analyte", "LLOQ", "ULOQ", "units", "U_percent")
+    extra <- setdiff(names(uncertaintyEdits), allowed)
+    if (length(extra)) {
+      stop("Unknown column(s) in `uncertaintyEdits`: ", paste(extra, collapse = ", "),
+           ". Use: ", paste(allowed[-1], collapse = ", "), call. = FALSE)
+    }
   }
 
   if (!is.null(materials) && !is.data.frame(materials)) {
@@ -209,10 +248,14 @@ generateReport <- function(data = NULL, fileType = NULL, assay = NULL, plateOrde
       ms_specialist_1    = initials$ms_specialist_1,
       ms_specialist_2    = initials$ms_specialist_2,
       ms_lead            = initials$ms_lead,
+      ms_specialist_1_date = signoffDates$ms_specialist_1_date,
+      ms_specialist_2_date = signoffDates$ms_specialist_2_date,
+      ms_lead_date       = signoffDates$ms_lead_date,
       notes              = text(notes),
       uncertainty        = if (is.null(uncertainty)) "" else uncertainty,
       materials          = materials,
-      decisions          = decisions
+      decisions          = decisions,
+      uncertaintyEdits   = uncertaintyEdits
     ),
     envir = new.env(parent = globalenv()),
     quiet = TRUE

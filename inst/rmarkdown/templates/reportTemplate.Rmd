@@ -31,6 +31,9 @@ params:
   ms_specialist_1: ""       # data processed and report prepared
   ms_specialist_2: ""       # QC results independently reviewed
   ms_lead: ""               # report authorised for release
+  ms_specialist_1_date: ""  # sign-off dates, YYYY-MM-DD; blank = the date the report is made
+  ms_specialist_2_date: ""
+  ms_lead_date: ""
   # ---- Notes ----------------------------------------------------------------
   notes: ""                 # deviations / remarks; for several lines use  notes: |
   # ---- Working range and measurement uncertainty ------------------------------
@@ -39,6 +42,7 @@ params:
   # ---- Set by generateReport() (in this notebook, use the edit-here chunk) ----
   materials: !r NULL
   decisions: !r NULL
+  uncertaintyEdits: !r NULL
 ---
 
 <!--
@@ -65,6 +69,8 @@ Two ways to use it:
 5. Write any deviations or remarks in `notes:` in the YAML header.
    The working range / uncertainty table comes from inst/uncertainty/<assay>.csv
    in the package (edit it in Excel), or from your own CSV via `uncertainty:`.
+   To change a few values for this report only, use `uncertainty_edits` in
+   the edit-here chunk.
 6. Knit. The report shows DRAFT until it has a report ID, all three sign-off
    initials and a decision for every CAUTION result; then AUTHORISED.
 -->
@@ -105,9 +111,21 @@ decisions <- data.frame(
 #   justification = c("Low calibrant excluded per SOP; R2 0.996 after exclusion", NA)
 # )
 
+# Changes to the working range / uncertainty table for THIS report only.
+# One row per analyte, with only the columns you want to change
+# (LLOQ, ULOQ, units, U_percent); NA keeps the value from the table.
+uncertainty_edits <- NULL
+# Example:
+# uncertainty_edits <- data.frame(
+#   analyte = c("CDCA", "GCA"),
+#   LLOQ    = c(5, NA),
+#   ULOQ    = c(NA, 2000)
+# )
+
 # Values passed by generateReport() take the place of the tables above
 if (!is.null(params$materials)) materials <- params$materials
 if (!is.null(params$decisions)) decisions <- params$decisions
+if (!is.null(params$uncertaintyEdits)) uncertainty_edits <- params$uncertaintyEdits
 ```
 
 ```{r setup, include=FALSE}
@@ -145,7 +163,7 @@ if (is(params$data)[1] == "character") {
     pattern <- if (nzchar(txt(params$fileType))) paste0("\\.", params$fileType, "$") else "\\.(xml|tsv|txt)$"
     input_files <- unique(unlist(lapply(paths, function(p) {
       if (dir.exists(p)) {
-        sort(list.files(p, pattern = pattern, full.names = TRUE, recursive = TRUE, ignore.case = TRUE))
+        sort(list.files(p, pattern = pattern, full.names = TRUE, ignore.case = TRUE))
       } else if (grepl("[*?]", p)) {
         sort(Sys.glob(p))
       } else {
@@ -262,6 +280,44 @@ if (is.data.frame(unc_source)) {
   unc_from <- if (nzchar(txt(unc_source))) basename(unc_file) else
     if (nzchar(unc_file)) paste0("package table inst/uncertainty/", assay, ".csv") else ""
 }
+# Changes for this report only, applied on top of the table
+unc_changes <- character(0)
+unc_edit_unknown <- character(0)
+if (!is.null(uncertainty_edits) && nrow(uncertainty_edits)) {
+  ed <- uncertainty_edits
+  if (!"analyte" %in% names(ed)) stop("`uncertainty_edits` needs an `analyte` column.")
+  if (is.null(unc)) {
+    unc <- data.frame(analyte = character(0), LLOQ = numeric(0), ULOQ = numeric(0),
+                      units = character(0), U_percent = numeric(0))
+  }
+  unc$analyte <- trimws(unc$analyte)
+  ed$analyte <- trimws(ed$analyte)
+  bad_cols <- setdiff(names(ed), names(unc))
+  if (length(bad_cols)) {
+    stop("Unknown column(s) in `uncertainty_edits`: ", paste(bad_cols, collapse = ", "),
+         ". Use: ", paste(setdiff(names(unc), "analyte"), collapse = ", "))
+  }
+  unc_edit_unknown <- setdiff(ed$analyte, analytes)   # e.g. a typo in the name
+  for (k in seq_len(nrow(ed))) {
+    a <- ed$analyte[k]
+    if (a %in% unc_edit_unknown) next                  # not in this run: ignored (noted in the status box)
+    i <- match(a, unc$analyte)
+    if (is.na(i)) {                                    # analyte not in the table yet: add it
+      unc[nrow(unc) + 1, ] <- NA
+      unc$analyte[nrow(unc)] <- a
+      i <- nrow(unc)
+    }
+    for (col in setdiff(names(ed), "analyte")) {
+      v <- ed[[col]][k]
+      if (is.na(v) || identical(as.character(v), "")) next
+      old <- unc[[col]][i]
+      old <- if (is.na(old) || identical(as.character(old), "")) "(blank)" else as.character(old)
+      unc[[col]][i] <- v
+      unc_changes <- c(unc_changes, sprintf("%s %s: %s -> %s", a, col, old, v))
+    }
+  }
+}
+
 if (!is.null(unc)) {
   unc$analyte <- trimws(unc$analyte)
   unc_missing <- setdiff(analytes, unc$analyte)               # in the run, not in the table
@@ -283,6 +339,25 @@ signoff <- data.frame(
 )
 signed <- nzchar(signoff$Initials)
 repeated <- unique(signoff$Initials[signed][duplicated(signoff$Initials[signed])])
+
+# Sign-off dates: as entered, or the date the report is made
+signoff_dates <- trimws(c(txt(params$ms_specialist_1_date), txt(params$ms_specialist_2_date),
+                          txt(params$ms_lead_date)))
+parsed_dates <- as.Date(signoff_dates, format = "%Y-%m-%d")
+bad_dates <- nzchar(signoff_dates) & is.na(parsed_dates)
+if (any(bad_dates)) {
+  stop("Sign-off dates must be YYYY-MM-DD: ", paste(signoff$Role[bad_dates], collapse = ", "))
+}
+if (any(parsed_dates > Sys.Date(), na.rm = TRUE)) {
+  stop("Sign-off date in the future: ",
+       paste(signoff$Role[which(parsed_dates > Sys.Date())], collapse = ", "))
+}
+signoff$Date <- ifelse(!signed, NA,
+                       ifelse(nzchar(signoff_dates), signoff_dates, format(Sys.Date(), "%Y-%m-%d")))
+date_no_initials <- signoff$Role[nzchar(signoff_dates) & !signed]
+d <- as.Date(signoff$Date)
+out_of_order <- (!is.na(d[3]) && any(d[3] < d[1:2], na.rm = TRUE)) ||
+                (!is.na(d[2]) && !is.na(d[1]) && d[2] < d[1])
 
 # ---- Software provenance (ISO 17025 7.11) --------------------------------------------
 pkg_dir <- dirname(system.file("DESCRIPTION", package = "ms.qc.report"))
@@ -310,7 +385,14 @@ notes_banner <- c(
   if (any(unmatched)) paste("Decision(s) that match no CAUTION result were ignored:",
                             paste(dec$plate[unmatched], dec$analyte[unmatched], collapse = ", ")),
   if (length(unc_missing)) sprintf("%d analyte(s) have no working range / uncertainty entry (see that section).",
-                                   length(unc_missing))
+                                   length(unc_missing)),
+  if (length(unc_changes)) sprintf("%d working range / uncertainty value(s) changed for this report (see that section).",
+                                   length(unc_changes)),
+  if (length(unc_edit_unknown)) paste("Uncertainty edit(s) for analyte(s) not in this run were ignored:",
+                                      paste(unc_edit_unknown, collapse = ", ")),
+  if (length(date_no_initials)) paste("Sign-off date given without initials:",
+                                      paste(date_no_initials, collapse = ", ")),
+  if (out_of_order) "Sign-off dates are not in order (specialist 1, then specialist 2, then MS Lead)."
 )
 generated <- Sys.time()
 ```
@@ -421,14 +503,22 @@ if (is.null(unc)) {
   cat("No working range / uncertainty table is available for assay", assay, "\n")
 } else {
   shown <- unc
+  shown[] <- lapply(shown, function(x) {              # 1 not 1.0, 0.5 stays 0.5
+    if (is.numeric(x)) ifelse(is.na(x), "", format(x, drop0trailing = TRUE, trim = TRUE)) else x
+  })
   names(shown)[names(shown) == "analyte"]   <- "Analyte"
   names(shown)[names(shown) == "units"]     <- "Units"
   names(shown)[names(shown) == "U_percent"] <- "Expanded uncertainty U (%, k = 2)"
-  cat("Source:", unc_from, "\n\n")
+  cat("Source:", unc_from, if (length(unc_changes)) "(with changes for this report, listed below)", "\n\n")
   print(knitr::kable(shown, row.names = FALSE))
   if (unc_no_U) {
     cat("\nExpanded uncertainty has not been entered in this table.\n")
   }
+}
+if (length(unc_changes)) {
+  cat("\n**Changed for this report:**\n\n")
+  cat(paste0("- ", unc_changes), sep = "\n")
+  cat("\n")
 }
 if (length(unc_missing)) {
   cat("\n**No entry for:**", paste(unc_missing, collapse = ", "),
@@ -512,11 +602,11 @@ if (length(input_files)) {
 ```{r signoff}
 so <- signoff
 so$Initials[!signed] <- "________"
-so$Date <- ifelse(signed, format(generated, "%Y-%m-%d"), "____-__-__")
+so$Date[!signed] <- "____-__-__"
 knitr::kable(so, row.names = FALSE)
 ```
 
-Initials are recorded in this notebook's YAML header; the date is the date this revision was knitted.
+Dates are as entered; where none was given, the date this revision was made.
 
 ## Software
 

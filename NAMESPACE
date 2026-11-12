@@ -3,6 +3,7 @@
 export(generateReport)
 export(plotQC)
 export(summaryTables)
+export(uncertaintyTable)
 import(fusion)
 import(ggplot2)
 import(grid)
